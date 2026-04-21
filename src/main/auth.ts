@@ -19,16 +19,18 @@ export function parseTokenFromUrl(url: string): string | null {
 
 export function resolveAuthCallback(url: string): void {
   if (!pendingResolve) return
-  const token = parseTokenFromUrl(url)
-  if (token) {
-    clearTimeout(pendingTimeout!)
-    pendingResolve(token)
-  } else {
-    pendingReject!(new Error('No token found in OAuth callback URL'))
-  }
+  const resolve = pendingResolve
+  const reject = pendingReject!
+  clearTimeout(pendingTimeout!)
   pendingResolve = null
   pendingReject = null
   pendingTimeout = null
+  const token = parseTokenFromUrl(url)
+  if (token) {
+    resolve(token)
+  } else {
+    reject(new Error('No token found in OAuth callback URL'))
+  }
 }
 
 async function fetchUserInfo(token: string): Promise<UserInfo> {
@@ -49,7 +51,7 @@ async function fetchSshCredential(token: string, userId: number): Promise<SshCre
     },
     body: JSON.stringify({ method: 'credential', payload: {} })
   })
-  if (!res.ok) throw new Error('Failed to fetch SSH credentials')
+  if (!res.ok) throw Object.assign(new Error('Failed to fetch SSH credentials'), { status: res.status })
   const data = await res.json() as { host: string; username: string; sshKey: string }
   return { userId, host: data.host, username: data.username, sshKey: data.sshKey }
 }
@@ -91,7 +93,9 @@ export async function getSession(): Promise<UserInfo | null> {
   try {
     return await fetchUserInfo(token)
   } catch (err) {
-    const status = (err as { status?: number }).status
+    const status = typeof err === 'object' && err !== null && 'status' in err
+      ? (err as { status: number }).status
+      : undefined
     if (status === 401 || status === 403) {
       await keychainDelete('oauth-token')
       await keychainDelete('ssh-credential')
