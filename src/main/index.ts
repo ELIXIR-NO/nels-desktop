@@ -39,8 +39,6 @@ if (!app.requestSingleInstanceLock()) {
       }
     })
 
-    registerIpcHandlers(win)
-
     if (process.env.ELECTRON_RENDERER_URL) {
       win.loadURL(process.env.ELECTRON_RENDERER_URL)
     } else {
@@ -56,6 +54,7 @@ if (!app.requestSingleInstanceLock()) {
     app.setAsDefaultProtocolClient('nels')
 
     mainWindow = createWindow()
+    registerIpcHandlers(() => mainWindow)
 
     app.on('activate', () => {
       if (BrowserWindow.getAllWindows().length === 0) mainWindow = createWindow()
