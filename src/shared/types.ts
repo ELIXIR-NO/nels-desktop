@@ -26,6 +26,16 @@ export interface UploadItem {
   error?: string
 }
 
+export interface UploadProgressData { id: string; pct: number }
+export interface UploadDoneData { id: string }
+export interface UploadErrorData { id: string; message: string }
+
+export interface UploadEventMap {
+  'upload:progress': UploadProgressData
+  'upload:done': UploadDoneData
+  'upload:error': UploadErrorData
+}
+
 // The API surface exposed to the renderer via contextBridge (window.nels)
 export interface NeLS {
   auth: {
@@ -37,8 +47,8 @@ export interface NeLS {
     list(path: string): Promise<FileEntry[]>
     upload(localPath: string, remotePath: string, id: string): Promise<void>
   }
-  on(
-    channel: 'upload:progress' | 'upload:done' | 'upload:error',
-    listener: (data: unknown) => void
+  on<C extends keyof UploadEventMap>(
+    channel: C,
+    listener: (data: UploadEventMap[C]) => void
   ): () => void
 }
