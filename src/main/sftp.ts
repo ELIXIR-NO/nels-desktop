@@ -1,0 +1,168 @@
+import { Client } from 'ssh2'
+import type { FileEntry, SshCredential } from '@shared/types'
+import { config } from './config'
+import { getSshCredential } from './auth'
+
+export interface SftpAdapter {
+  list(path: string): Promise<FileEntry[]>
+  upload(local: string, remote: string, onProgress: (pct: number) => void): Promise<void>
+  disconnect(): void
+}
+
+// Module-level session state
+let currentAdapter: SftpAdapter | null = null
+
+// Replaces the adapter — used in tests only
+export function _setAdapterForTesting(adapter: SftpAdapter): void {
+  currentAdapter?.disconnect()
+  currentAdapter = adapter
+}
+
+export function clearAdapter(): void {
+  currentAdapter?.disconnect()
+  currentAdapter = null
+}
+
+async function getAdapter(): Promise<SftpAdapter> {
+  if (currentAdapter) return currentAdapter
+  const cred = await getSshCredential()
+  if (!cred) throw new Error('No SSH credentials — please log in again')
+  currentAdapter = await Ssh2SftpAdapter.connect(cred)
+  return currentAdapter
+}
+
+function sortEntries(entries: FileEntry[]): FileEntry[] {
+  return [...entries].sort((a, b) => {
+    if (a.isDir !== b.isDir) return a.isDir ? -1 : 1
+    return a.name.localeCompare(b.name)
+  })
+}
+
+export async function listFiles(path: string): Promise<FileEntry[]> {
+  const adapter = await getAdapter()
+  const entries = await adapter.list(path)
+  return sortEntries(entries)
+}
+
+export async function uploadFile(
+  localPath: string,
+  remotePath: string,
+  onProgress: (pct: number) => void
+): Promise<void> {
+  const adapter = await getAdapter()
+  return adapter.upload(localPath, remotePath, onProgress)
+}
+
+// Real SFTP implementation using ssh2 ProxyJump
+export class Ssh2SftpAdapter implements SftpAdapter {
+  private bastion: Client
+  private dataClient: Client
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private sftp: any // ssh2 SFTPWrapper — no public types available
+
+  private constructor(bastion: Client, dataClient: Client, sftp: unknown) {
+    this.bastion = bastion
+    this.dataClient = dataClient
+    this.sftp = sftp
+  }
+
+  static connect(cred: SshCredential): Promise<Ssh2SftpAdapter> {
+    return new Promise((resolve, reject) => {
+      const privateKey = Buffer.from(cred.sshKey)
+
+      const bastion = new Client()
+      bastion.on('error', (err) => reject(new Error(`Bastion SSH error: ${err.message}`)))
+      bastion.on('ready', () => {
+        bastion.forwardOut('127.0.0.1', 0, config.ssh.dataHost, 22, (err, stream) => {
+          if (err) { bastion.end(); return reject(new Error(`ProxyJump failed: ${err.message}`)) }
+
+          const dataClient = new Client()
+          dataClient.on('error', (err) => {
+            bastion.end()
+            reject(new Error(`Data host SSH error: ${err.message}`))
+          })
+          dataClient.on('ready', () => {
+            dataClient.sftp((err, sftp) => {
+              if (err) { dataClient.end(); bastion.end(); return reject(err) }
+              resolve(new Ssh2SftpAdapter(bastion, dataClient, sftp))
+            })
+          })
+          dataClient.connect({
+            sock: stream,
+            username: cred.username,
+            privateKey,
+            hostHash: 'sha256',
+            hostVerifier: (hash: Buffer) => {
+              const fp = hash.toString('base64')
+              if (fp !== config.ssh.dataFingerprint) {
+                reject(new Error(`Data host fingerprint mismatch: got ${fp}`))
+                return false
+              }
+              return true
+            }
+          })
+        })
+      })
+
+      bastion.connect({
+        host: config.ssh.loginHost,
+        port: 22,
+        username: cred.username,
+        privateKey,
+        hostHash: 'sha256',
+        hostVerifier: (hash: Buffer) => {
+          const fp = hash.toString('base64')
+          if (fp !== config.ssh.loginFingerprint) {
+            reject(new Error(`Login host fingerprint mismatch: got ${fp}`))
+            return false
+          }
+          return true
+        }
+      })
+    })
+  }
+
+  async list(path: string): Promise<FileEntry[]> {
+    return new Promise((resolve, reject) => {
+      this.sftp.readdir(path, (err: Error | undefined, list: unknown[]) => {
+        if (err) return reject(new Error(`readdir failed: ${err.message}`))
+        const entries: FileEntry[] = (list as Array<{
+          filename: string
+          attrs: { size: number; mtime: number; mode: number }
+        }>)
+          .filter((f) => f.filename !== '.' && f.filename !== '..')
+          .map((f) => ({
+            name: f.filename,
+            size: f.attrs.size,
+            mtime: new Date(f.attrs.mtime * 1000),
+            // mode bit 0o040000 = directory
+            isDir: (f.attrs.mode & 0o170000) === 0o040000,
+          }))
+        resolve(entries)
+      })
+    })
+  }
+
+  upload(local: string, remote: string, onProgress: (pct: number) => void): Promise<void> {
+    return new Promise((resolve, reject) => {
+      this.sftp.fastPut(
+        local,
+        remote,
+        {
+          step: (transferred: number, _chunk: number, total: number) => {
+            onProgress(Math.round((transferred / total) * 100))
+          }
+        },
+        (err: Error | undefined) => {
+          if (err) return reject(new Error(`Upload failed: ${err.message}`))
+          resolve()
+        }
+      )
+    })
+  }
+
+  disconnect(): void {
+    try { this.dataClient.end() } catch { /* ignore */ }
+    try { this.bastion.end() } catch { /* ignore */ }
+  }
+}
