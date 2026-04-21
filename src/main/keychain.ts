@@ -11,5 +11,5 @@ export async function keychainWrite(account: string, value: string): Promise<voi
 }
 
 export async function keychainDelete(account: string): Promise<void> {
-  await keytar.deletePassword(SERVICE, account)
+  return keytar.deletePassword(SERVICE, account)
 }
