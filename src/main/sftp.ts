@@ -68,23 +68,35 @@ export class Ssh2SftpAdapter implements SftpAdapter {
 
   static connect(cred: SshCredential): Promise<Ssh2SftpAdapter> {
     return new Promise((resolve, reject) => {
+      let settled = false
       const privateKey = Buffer.from(cred.sshKey)
 
+      const done = (err: Error | null, value?: Ssh2SftpAdapter) => {
+        if (settled) return
+        settled = true
+        if (err) reject(err)
+        else resolve(value!)
+      }
+
       const bastion = new Client()
-      bastion.on('error', (err) => reject(new Error(`Bastion SSH error: ${err.message}`)))
+      bastion.on('error', (err) => done(new Error(`Bastion SSH error: ${err.message}`)))
       bastion.on('ready', () => {
         bastion.forwardOut('127.0.0.1', 0, config.ssh.dataHost, 22, (err, stream) => {
-          if (err) { bastion.end(); return reject(new Error(`ProxyJump failed: ${err.message}`)) }
+          if (err) { bastion.end(); return done(new Error(`ProxyJump failed: ${err.message}`)) }
 
           const dataClient = new Client()
           dataClient.on('error', (err) => {
             bastion.end()
-            reject(new Error(`Data host SSH error: ${err.message}`))
+            done(new Error(`Data host SSH error: ${err.message}`))
           })
           dataClient.on('ready', () => {
             dataClient.sftp((err, sftp) => {
-              if (err) { dataClient.end(); bastion.end(); return reject(err) }
-              resolve(new Ssh2SftpAdapter(bastion, dataClient, sftp))
+              if (err) {
+                dataClient.end()
+                bastion.end()
+                return done(new Error(`SFTP subsystem error: ${err.message}`))
+              }
+              done(null, new Ssh2SftpAdapter(bastion, dataClient, sftp))
             })
           })
           dataClient.connect({
@@ -95,7 +107,7 @@ export class Ssh2SftpAdapter implements SftpAdapter {
             hostVerifier: (hash: Buffer) => {
               const fp = hash.toString('base64')
               if (fp !== config.ssh.dataFingerprint) {
-                reject(new Error(`Data host fingerprint mismatch: got ${fp}`))
+                done(new Error(`Data host fingerprint mismatch: got ${fp}`))
                 return false
               }
               return true
@@ -113,7 +125,7 @@ export class Ssh2SftpAdapter implements SftpAdapter {
         hostVerifier: (hash: Buffer) => {
           const fp = hash.toString('base64')
           if (fp !== config.ssh.loginFingerprint) {
-            reject(new Error(`Login host fingerprint mismatch: got ${fp}`))
+            done(new Error(`Login host fingerprint mismatch: got ${fp}`))
             return false
           }
           return true
@@ -162,6 +174,7 @@ export class Ssh2SftpAdapter implements SftpAdapter {
   }
 
   disconnect(): void {
+    // end() can throw if the socket is already closed — best-effort cleanup
     try { this.dataClient.end() } catch { /* ignore */ }
     try { this.bastion.end() } catch { /* ignore */ }
   }
