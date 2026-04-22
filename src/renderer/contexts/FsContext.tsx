@@ -57,7 +57,7 @@ interface FsContextValue extends FsState {
 
 const FsContext = createContext<FsContextValue | null>(null)
 
-const DEFAULT_PATH = ''
+const DEFAULT_PATH = 'Personal'
 
 export function FsProvider({ children, user: _user }: { children: React.ReactNode; user: UserInfo }) {
   const [state, dispatch] = useReducer(fsReducer, {

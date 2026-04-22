@@ -5,7 +5,7 @@ import React from 'react'
 import type { FileEntry, UserInfo } from '../../src/shared/types'
 
 const mockEntries: FileEntry[] = [
-  { name: 'Personal', size: 0, mtime: new Date('2024-06-01'), isDir: true },
+  { name: 'Projects', size: 0, mtime: new Date('2024-06-01'), isDir: true },
   { name: 'sample.fastq', size: 2 * 1024 ** 3, mtime: new Date('2024-05-01'), isDir: false },
 ]
 
@@ -44,14 +44,14 @@ describe('FileView', () => {
 
   it('lists files after load', async () => {
     render(<FileView user={mockUser} />, { wrapper: Wrapper })
-    await waitFor(() => expect(screen.getByText('Personal')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByText('Projects')).toBeInTheDocument())
     expect(screen.getByText('sample.fastq')).toBeInTheDocument()
   })
 
   it('navigates into a directory on click', async () => {
     render(<FileView user={mockUser} />, { wrapper: Wrapper })
-    await waitFor(() => screen.getByText('Personal'))
-    fireEvent.click(screen.getByText('Personal'))
-    await waitFor(() => expect(mockNels.fs.list).toHaveBeenCalledWith(expect.stringContaining('Personal')))
+    await waitFor(() => screen.getByText('Projects'))
+    fireEvent.click(screen.getByText('Projects'))
+    await waitFor(() => expect(mockNels.fs.list).toHaveBeenCalledWith(expect.stringContaining('Projects')))
   })
 })
