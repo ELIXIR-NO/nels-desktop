@@ -114,7 +114,20 @@ export class Ssh2SftpAdapter implements SftpAdapter {
       }
 
       const bastion = new Client()
-      bastion.on('error', (err) => done(new Error(`Bastion SSH error: ${err.message}`)))
+      bastion.on('error', (err) => {
+        // Handshake timeouts usually mean the network is blocking SSH or
+        // the staging environment's VPN isn't connected — surface that hint
+        // instead of a bare "timed out" so users don't have to guess.
+        const looksLikeNetwork =
+          /timed out/i.test(err.message) ||
+          /ETIMEDOUT/i.test(err.message) ||
+          /ECONNREFUSED/i.test(err.message) ||
+          /ENETUNREACH/i.test(err.message)
+        const hint = looksLikeNetwork
+          ? ` — check that your network can reach ${config.ssh.loginHost}:22. Staging requires VPN.`
+          : ''
+        done(new Error(`Bastion SSH error: ${err.message}${hint}`))
+      })
       bastion.on('ready', () => {
         bastion.forwardOut('127.0.0.1', 0, config.ssh.dataHost, 22, (err, stream) => {
           if (err) { bastion.end(); return done(new Error(`ProxyJump failed: ${err.message}`)) }

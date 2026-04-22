@@ -5,6 +5,8 @@ A desktop app for uploading, browsing, and managing files in your [NeLS](https:/
 Sign in with Feide, drag files into the window, done.
 
 > **Heads up — this build points at the NeLS *staging* environment (`staging.nels.elixir.no`).** Anything you upload goes to staging storage, not production.
+>
+> **Staging requires VPN.** You need to be on the NeLS / Sigma2 / institutional VPN that gives you access to staging, otherwise the SFTP connection will time out with *"Bastion SSH error: timed out while waiting for handshake"*. Production endpoints don't require VPN.
 
 ---
 
@@ -92,6 +94,7 @@ These are normally only useful if you're building a custom version.
 
 ## Troubleshooting
 
+- **"Bastion SSH error: timed out while waiting for handshake"** — your machine can't reach `slogin.nels.elixir.no:22` at all. If you're on staging, connect to your VPN first. You can also run `nc -vz slogin.nels.elixir.no 22` from a terminal to confirm reachability.
 - **"Could not load folder"** — open **Settings** from the user menu, check the SFTP and API URLs look right, and share the "Copy report" output when asking for help.
 - **Login stuck on "Connecting…"** — the `nels://` redirect didn't arrive. Use the token-paste fallback on the login screen.
 - **"Fingerprint mismatch"** — the SSH host key on the server has rotated, or you're pointed at the wrong environment. File an issue with the reported fingerprint.
