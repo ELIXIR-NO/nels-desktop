@@ -14,7 +14,8 @@ function AppInner() {
     )
   }
 
-  if (status === 'authenticated' && user) {
+  if (status === 'authenticated') {
+    if (!user) return null  // Impossible: authenticated state always has a user.
     return <FileView user={user} />
   }
 

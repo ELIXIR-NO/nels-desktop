@@ -4,14 +4,6 @@ import { useAuth } from '../contexts/AuthContext'
 export function AuthView() {
   const { status, error, login } = useAuth()
 
-  if (status === 'loading') {
-    return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', color: '#999' }}>
-        Loading…
-      </div>
-    )
-  }
-
   const isConnecting = status === 'authenticating'
 
   return (
