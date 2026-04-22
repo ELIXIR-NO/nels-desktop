@@ -48,8 +48,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   })
 
   useEffect(() => {
-    window.nels.auth.getSession()
-      .then((user) => dispatch({ type: 'SESSION_CHECKED', user }))
+    Promise.resolve(window.nels.auth.getSession())
+      .then((user) => dispatch({ type: 'SESSION_CHECKED', user: user ?? null }))
       .catch(() => dispatch({ type: 'SESSION_CHECKED', user: null }))
   }, [])
 
