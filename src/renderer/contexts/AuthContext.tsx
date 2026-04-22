@@ -64,8 +64,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   async function logout() {
-    await window.nels.auth.logout()
-    dispatch({ type: 'LOGOUT' })
+    try {
+      await window.nels.auth.logout()
+    } finally {
+      // Always clear local state even if the server-side logout fails.
+      dispatch({ type: 'LOGOUT' })
+    }
   }
 
   return (

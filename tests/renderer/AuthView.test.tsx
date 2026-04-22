@@ -26,17 +26,20 @@ function Wrapper({ children }: { children: React.ReactNode }) {
 describe('AuthView', () => {
   beforeEach(() => { vi.resetAllMocks() })
 
-  it('renders login button in idle state', () => {
+  it('renders login button in idle state', async () => {
     mockNels.auth.getSession.mockResolvedValue(null)
     render(<AuthView />, { wrapper: Wrapper })
-    expect(screen.getByRole('button', { name: /login/i })).toBeInTheDocument()
+    const button = await screen.findByRole('button', { name: /login/i })
+    expect(button).toBeInTheDocument()
+    expect(button).not.toBeDisabled()
   })
 
   it('calls auth.login when button clicked', async () => {
     mockNels.auth.getSession.mockResolvedValue(null)
     mockNels.auth.login.mockResolvedValue({ userId: 1, name: 'Test' })
     render(<AuthView />, { wrapper: Wrapper })
-    fireEvent.click(screen.getByRole('button', { name: /login/i }))
+    const button = await screen.findByRole('button', { name: /login/i })
+    fireEvent.click(button)
     await waitFor(() => expect(mockNels.auth.login).toHaveBeenCalled())
   })
 
@@ -44,7 +47,8 @@ describe('AuthView', () => {
     mockNels.auth.getSession.mockResolvedValue(null)
     mockNels.auth.login.mockRejectedValue(new Error('Login failed'))
     render(<AuthView />, { wrapper: Wrapper })
-    fireEvent.click(screen.getByRole('button', { name: /login/i }))
+    const button = await screen.findByRole('button', { name: /login/i })
+    fireEvent.click(button)
     await waitFor(() => expect(screen.getByText(/login failed/i)).toBeInTheDocument())
   })
 })
