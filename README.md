@@ -19,7 +19,7 @@ Sign in with Feide, drag files into the window, done.
 
 ## Install
 
-Download the installer for your OS from the [latest release](https://github.com/yasinmiran/nels-uncle/releases/latest):
+Download the installer for your OS from the [latest release](https://github.com/yasinmiran/nels-desktop/releases/latest):
 
 | OS | File |
 |---|---|
@@ -89,7 +89,7 @@ These are normally only useful if you're building a custom version.
 
 ## Reporting issues
 
-Open an issue at https://github.com/yasinmiran/nels-uncle/issues. Include the diagnostic report from **Settings → Copy report** if you can — it has the exact versions and endpoints the app is using.
+Open an issue at https://github.com/yasinmiran/nels-desktop/issues. Include the diagnostic report from **Settings → Copy report** if you can — it has the exact versions and endpoints the app is using.
 
 ---
 
@@ -99,8 +99,8 @@ If you want to build the app yourself:
 
 ```bash
 # Prerequisites: Node.js 20+, npm, and (on Linux) libsecret-1-dev
-git clone https://github.com/yasinmiran/nels-uncle.git
-cd nels-uncle
+git clone https://github.com/yasinmiran/nels-desktop.git
+cd nels-desktop
 npm install
 npm run rebuild      # recompile keytar against the Electron version
 npm run dev          # or: npm run package (produces installer in release/)

@@ -6,7 +6,7 @@
   "private": true,
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/yasinmiran/nels-uncle.git"
+    "url": "git+https://github.com/yasinmiran/nels-desktop.git"
   },
   "scripts": {
     "dev": "electron-vite dev",
