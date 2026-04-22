@@ -59,7 +59,9 @@ if (!app.requestSingleInstanceLock()) {
     // Only check for updates in packaged builds
     if (app.isPackaged) {
       import('electron-updater').then(({ autoUpdater }) => {
-        autoUpdater.checkForUpdatesAndNotify()
+        autoUpdater.checkForUpdatesAndNotify().catch((err: Error) => {
+          console.error('[updater] update check failed:', err.message)
+        })
       })
     }
 

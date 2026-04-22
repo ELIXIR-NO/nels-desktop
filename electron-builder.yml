@@ -7,6 +7,9 @@ directories:
 
 files:
   - out/**/*
+  - package.json
+  - node_modules/**/*
+  - "!node_modules/.cache"
 
 protocols:
   - name: NeLS Desktop
@@ -29,6 +32,9 @@ linux:
 nsis:
   oneClick: true
   perMachine: false
+
+asarUnpack:
+  - node_modules/keytar/**
 
 publish:
   provider: github
