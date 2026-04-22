@@ -1,5 +1,5 @@
 import { shell } from 'electron'
-import type { UserInfo, SshCredential } from '@shared/types'
+import type { UserInfo, SshCredential, NelsProject, SshCredentialInfo } from '@shared/types'
 import { keychainRead, keychainWrite, keychainDelete } from './keychain'
 import { config } from './config'
 
@@ -56,6 +56,14 @@ async function fetchSshCredential(token: string, userId: number): Promise<SshCre
   return { userId, host: data.host, username: data.username, sshKey: data.sshKey }
 }
 
+async function completeLogin(token: string): Promise<UserInfo> {
+  const user = await fetchUserInfo(token)
+  const cred = await fetchSshCredential(token, user.userId)
+  await keychainWrite('oauth-token', token)
+  await keychainWrite('ssh-credential', JSON.stringify(cred))
+  return user
+}
+
 export async function login(): Promise<UserInfo> {
   const token = await new Promise<string>((resolve, reject) => {
     if (pendingReject) pendingReject(new Error('Login superseded'))
@@ -77,13 +85,12 @@ export async function login(): Promise<UserInfo> {
     shell.openExternal(url)
   })
 
-  const user = await fetchUserInfo(token)
-  const cred = await fetchSshCredential(token, user.userId)
+  return completeLogin(token)
+}
 
-  await keychainWrite('oauth-token', token)
-  await keychainWrite('ssh-credential', JSON.stringify(cred))
-
-  return user
+export async function loginWithToken(token: string): Promise<UserInfo> {
+  if (!token || typeof token !== 'string') throw new Error('token is required')
+  return completeLogin(token.trim())
 }
 
 export async function getSession(): Promise<UserInfo | null> {
@@ -113,4 +120,55 @@ export async function getSshCredential(): Promise<SshCredential | null> {
   const raw = await keychainRead('ssh-credential')
   if (!raw) return null
   return JSON.parse(raw) as SshCredential
+}
+
+/** Renderer-safe view of the SSH credential — never exposes the private key. */
+export async function getSshCredentialInfo(): Promise<SshCredentialInfo | null> {
+  const cred = await getSshCredential()
+  if (!cred) return null
+  return {
+    userId: cred.userId,
+    username: cred.username,
+    host: cred.host,
+    hasKey: Boolean(cred.sshKey),
+  }
+}
+
+// Server response uses snake_case. Envelope is `{ data, total }` in the
+// observed staging deployment; tolerate bare-array and other envelope keys too.
+interface RawNelsProject {
+  project_id: number
+  user_id: number
+  name: string
+  description?: string
+  role?: string
+  has_filesystem_access: boolean
+}
+
+export async function getProjects(): Promise<NelsProject[]> {
+  const token = await keychainRead('oauth-token')
+  if (!token) throw new Error('Not authenticated')
+  const cred = await getSshCredential()
+  if (!cred) throw new Error('Not authenticated')
+  const res = await fetch(`${config.apiBase}/users/${cred.userId}/nels-projects`, {
+    headers: { Authorization: `Bearer ${token}` }
+  })
+  if (!res.ok) throw new Error(`Failed to fetch projects (HTTP ${res.status})`)
+  const body = await res.json() as RawNelsProject[] | {
+    data?: RawNelsProject[]
+    results?: RawNelsProject[]
+    elements?: RawNelsProject[]
+  }
+  const raw: RawNelsProject[] = Array.isArray(body)
+    ? body
+    : body.data ?? body.results ?? body.elements ?? []
+  return raw
+    .filter((p) => p.has_filesystem_access)
+    .map((p) => ({
+      projectId: p.project_id,
+      name: p.name,
+      description: p.description,
+      role: p.role,
+      hasFilesystemAccess: p.has_filesystem_access,
+    }))
 }

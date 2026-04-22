@@ -3,8 +3,11 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- Radix UI (via shadcn) applies positioning styles inline on portal roots,
+         so style-src needs 'unsafe-inline'. This is scoped to the renderer
+         document only; script-src remains strict. -->
     <meta http-equiv="Content-Security-Policy"
-          content="default-src 'self'; script-src 'self'; style-src 'self'" />
+          content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'" />
     <title>NeLS</title>
   </head>
   <body>

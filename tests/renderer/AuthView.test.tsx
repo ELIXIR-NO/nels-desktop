@@ -7,11 +7,16 @@ import React from 'react'
 const mockNels = {
   auth: {
     login: vi.fn(),
+    loginWithToken: vi.fn(),
     logout: vi.fn(),
     getSession: vi.fn(),
+    getCredentialInfo: vi.fn().mockResolvedValue(null),
   },
-  fs: { list: vi.fn(), upload: vi.fn() },
+  config: { get: vi.fn().mockResolvedValue(null) },
+  fs: { list: vi.fn(), upload: vi.fn(), delete: vi.fn() },
+  projects: { list: vi.fn().mockResolvedValue([]) },
   on: vi.fn().mockReturnValue(() => {}),
+  getPathForFile: vi.fn().mockReturnValue(''),
 }
 
 vi.stubGlobal('window', { ...global.window, nels: mockNels })

@@ -35,6 +35,7 @@ function authReducer(state: AuthState, action: AuthAction): AuthState {
 
 interface AuthContextValue extends AuthState {
   login(): Promise<void>
+  loginWithToken(token: string): Promise<void>
   logout(): Promise<void>
 }
 
@@ -63,6 +64,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [])
 
+  const loginWithToken = useCallback(async (token: string) => {
+    dispatch({ type: 'LOGIN_START' })
+    try {
+      const user = await window.nels.auth.loginWithToken(token)
+      dispatch({ type: 'LOGIN_SUCCESS', user })
+    } catch (err) {
+      dispatch({ type: 'LOGIN_ERROR', error: (err as Error).message })
+    }
+  }, [])
+
   const logout = useCallback(async () => {
     try {
       await window.nels.auth.logout()
@@ -73,7 +84,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   return (
-    <AuthContext.Provider value={{ ...state, login, logout }}>
+    <AuthContext.Provider value={{ ...state, login, loginWithToken, logout }}>
       {children}
     </AuthContext.Provider>
   )

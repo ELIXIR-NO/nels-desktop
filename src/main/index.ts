@@ -1,5 +1,5 @@
-import { app, BrowserWindow, protocol } from 'electron'
-import { join } from 'path'
+import { app, BrowserWindow, Menu, protocol } from 'electron'
+import { join, resolve } from 'path'
 import { resolveAuthCallback } from './auth'
 import { clearAdapter } from './sftp'
 import { registerIpcHandlers } from './ipc'
@@ -31,6 +31,12 @@ if (!app.requestSingleInstanceLock()) {
       height: 650,
       minWidth: 700,
       minHeight: 500,
+      autoHideMenuBar: true,
+      // Matches the dark-mode --background token so a dark-theme launch
+      // doesn't flash white before the renderer mounts. Light-theme users
+      // see this briefly on startup — an acceptable trade-off since the
+      // renderer's pre-mount theme script switches fast.
+      backgroundColor: '#09090b',
       webPreferences: {
         preload: join(__dirname, '../preload/index.js'),
         nodeIntegration: false,
@@ -49,9 +55,19 @@ if (!app.requestSingleInstanceLock()) {
   }
 
   app.whenReady().then(() => {
+    // Strip the default application menu. On Windows/Linux this removes the
+    // menu bar entirely; on macOS it leaves just the system-required app menu.
+    Menu.setApplicationMenu(null)
+
     // Register nels:// as a standard scheme before creating windows
     protocol.handle('nels', () => new Response('', { status: 204 }))
-    app.setAsDefaultProtocolClient('nels')
+    // On Linux in dev, pass the app path so the .desktop file can find it.
+    // Without this, the registered handler runs bare `electron` with no app arg.
+    if (process.platform === 'linux' && !app.isPackaged) {
+      app.setAsDefaultProtocolClient('nels', process.execPath, [resolve(process.argv[1])])
+    } else {
+      app.setAsDefaultProtocolClient('nels')
+    }
 
     mainWindow = createWindow()
     registerIpcHandlers(() => mainWindow)

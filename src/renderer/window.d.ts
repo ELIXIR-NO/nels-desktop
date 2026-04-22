@@ -1,3 +1,4 @@
+/// <reference types="vite/client" />
 import type { NeLS } from '@shared/types'
 
 declare global {

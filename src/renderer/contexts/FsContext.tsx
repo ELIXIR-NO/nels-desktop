@@ -5,12 +5,14 @@ interface FsState {
   currentPath: string
   entries: FileEntry[]
   loading: boolean
+  error: string | null
   uploads: UploadItem[]
 }
 
 type FsAction =
   | { type: 'LOAD_START'; path: string }
   | { type: 'LOAD_DONE'; entries: FileEntry[] }
+  | { type: 'LOAD_ERROR'; message: string }
   | { type: 'UPLOAD_QUEUE'; item: UploadItem }
   | { type: 'UPLOAD_PROGRESS'; id: string; pct: number }
   | { type: 'UPLOAD_DONE'; id: string }
@@ -20,9 +22,11 @@ type FsAction =
 function fsReducer(state: FsState, action: FsAction): FsState {
   switch (action.type) {
     case 'LOAD_START':
-      return { ...state, loading: true, currentPath: action.path }
+      return { ...state, loading: true, error: null, currentPath: action.path }
     case 'LOAD_DONE':
       return { ...state, loading: false, entries: action.entries }
+    case 'LOAD_ERROR':
+      return { ...state, loading: false, entries: [], error: action.message }
     case 'UPLOAD_QUEUE':
       return { ...state, uploads: [...state.uploads, action.item] }
     case 'UPLOAD_PROGRESS':
@@ -57,10 +61,14 @@ interface FsContextValue extends FsState {
   navigate(path: string): void
   queueUpload(localPath: string, filename: string): void
   dismissUpload(id: string): void
+  deleteEntry(path: string, isDir: boolean): Promise<void>
 }
 
 const FsContext = createContext<FsContextValue | null>(null)
 
+// `Personal` and `Projects/<name>` are real subdirectories under the user's
+// SFTP home on sdata.nels.elixir.no. We never expose the raw $HOME root
+// because writes there aren't managed by NeLS (the web UI can't delete them).
 export const DEFAULT_PATH = 'Personal'
 
 export function FsProvider({ children }: { children: React.ReactNode }) {
@@ -68,6 +76,7 @@ export function FsProvider({ children }: { children: React.ReactNode }) {
     currentPath: DEFAULT_PATH,
     entries: [],
     loading: true,
+    error: null,
     uploads: [],
   })
 
@@ -75,7 +84,7 @@ export function FsProvider({ children }: { children: React.ReactNode }) {
     dispatch({ type: 'LOAD_START', path })
     window.nels.fs.list(path)
       .then((entries) => dispatch({ type: 'LOAD_DONE', entries }))
-      .catch(() => dispatch({ type: 'LOAD_DONE', entries: [] }))
+      .catch((err: Error) => dispatch({ type: 'LOAD_ERROR', message: err.message }))
   }, [])
 
   useEffect(() => {
@@ -100,6 +109,10 @@ export function FsProvider({ children }: { children: React.ReactNode }) {
     const remotePath = `${state.currentPath}/${filename}`
     const item: UploadItem = { id, localPath, remotePath, pct: 0, status: 'queued' }
     dispatch({ type: 'UPLOAD_QUEUE', item })
+    if (!localPath) {
+      dispatch({ type: 'UPLOAD_ERROR', id, message: 'Could not resolve local file path' })
+      return
+    }
     window.nels.fs.upload(localPath, remotePath, id).catch((err: Error) => {
       dispatch({ type: 'UPLOAD_ERROR', id, message: err.message })
     })
@@ -109,8 +122,20 @@ export function FsProvider({ children }: { children: React.ReactNode }) {
     dispatch({ type: 'UPLOAD_DISMISS', id })
   }, [])
 
+  const deleteEntry = useCallback(async (path: string, isDir: boolean) => {
+    await window.nels.fs.delete(path, isDir)
+    // Refresh the current listing so the deleted entry disappears
+    dispatch({ type: 'LOAD_START', path: state.currentPath })
+    try {
+      const entries = await window.nels.fs.list(state.currentPath)
+      dispatch({ type: 'LOAD_DONE', entries })
+    } catch (err) {
+      dispatch({ type: 'LOAD_ERROR', message: (err as Error).message })
+    }
+  }, [state.currentPath])
+
   return (
-    <FsContext.Provider value={{ ...state, navigate, queueUpload, dismissUpload }}>
+    <FsContext.Provider value={{ ...state, navigate, queueUpload, dismissUpload, deleteEntry }}>
       {children}
     </FsContext.Provider>
   )

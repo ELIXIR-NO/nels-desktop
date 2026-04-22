@@ -6,7 +6,19 @@ import { getSshCredential } from './auth'
 export interface SftpAdapter {
   list(path: string): Promise<FileEntry[]>
   upload(local: string, remote: string, onProgress: (pct: number) => void): Promise<void>
+  unlink(path: string): Promise<void>
+  rmdir(path: string): Promise<void>
   disconnect(): void
+}
+
+// Normalise an ssh2 host-key hash to the no-padding base64 form that
+// `ssh-keygen -lf` and OpenSSH's `SHA256:...` prefix use. ssh2 passes the
+// hash as a hex string when `hostHash: 'sha256'` is set, and as a Buffer
+// otherwise. `Buffer.toString('base64')` always emits '='-padded output, but
+// fingerprints are conventionally stored unpadded.
+export function computeFingerprint(hash: Buffer | string): string {
+  const buf = typeof hash === 'string' ? Buffer.from(hash, 'hex') : hash
+  return buf.toString('base64').replace(/=+$/, '')
 }
 
 // Module-level session state
@@ -53,6 +65,23 @@ export async function uploadFile(
   return adapter.upload(localPath, remotePath, onProgress)
 }
 
+/**
+ * Delete a file or a directory tree.
+ * For directories, walks the tree deleting files first, then empty dirs
+ * bottom-up — SFTP has no "rm -rf" primitive.
+ */
+export async function deleteEntry(remotePath: string, isDir: boolean): Promise<void> {
+  const adapter = await getAdapter()
+  if (!isDir) return adapter.unlink(remotePath)
+
+  const entries = await adapter.list(remotePath)
+  for (const entry of entries) {
+    const childPath = `${remotePath}/${entry.name}`
+    await deleteEntry(childPath, entry.isDir)
+  }
+  await adapter.rmdir(remotePath)
+}
+
 // Real SFTP implementation using ssh2 ProxyJump
 export class Ssh2SftpAdapter implements SftpAdapter {
   private bastion: Client
@@ -96,6 +125,13 @@ export class Ssh2SftpAdapter implements SftpAdapter {
                 bastion.end()
                 return done(new Error(`SFTP subsystem error: ${err.message}`))
               }
+              // Resolve the SFTP session's home directory once for logging /
+              // diagnostics. Helps spot chroot / wrong-mount surprises.
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              ;(sftp as any).realpath('.', (rpErr: Error | undefined, home: string | undefined) => {
+                if (rpErr) console.warn('[sftp] realpath(.) failed:', rpErr.message)
+                else console.log('[sftp] session home:', home)
+              })
               done(null, new Ssh2SftpAdapter(bastion, dataClient, sftp))
             })
           })
@@ -104,8 +140,8 @@ export class Ssh2SftpAdapter implements SftpAdapter {
             username: cred.username,
             privateKey,
             hostHash: 'sha256',
-            hostVerifier: (hash: Buffer) => {
-              const fp = hash.toString('base64')
+            hostVerifier: (hash: Buffer | string) => {
+              const fp = computeFingerprint(hash)
               if (fp !== config.ssh.dataFingerprint) {
                 done(new Error(`Data host fingerprint mismatch: got ${fp}`))
                 return false
@@ -122,8 +158,8 @@ export class Ssh2SftpAdapter implements SftpAdapter {
         username: cred.username,
         privateKey,
         hostHash: 'sha256',
-        hostVerifier: (hash: Buffer) => {
-          const fp = hash.toString('base64')
+        hostVerifier: (hash: Buffer | string) => {
+          const fp = computeFingerprint(hash)
           if (fp !== config.ssh.loginFingerprint) {
             done(new Error(`Login host fingerprint mismatch: got ${fp}`))
             return false
@@ -136,8 +172,12 @@ export class Ssh2SftpAdapter implements SftpAdapter {
 
   async list(path: string): Promise<FileEntry[]> {
     return new Promise((resolve, reject) => {
+      console.log('[sftp] readdir', JSON.stringify(path))
       this.sftp.readdir(path, (err: Error | undefined, list: unknown[]) => {
-        if (err) return reject(new Error(`readdir failed: ${err.message}`))
+        if (err) {
+          console.error('[sftp] readdir error for', JSON.stringify(path), '->', err.message)
+          return reject(new Error(`readdir failed for ${JSON.stringify(path)}: ${err.message}`))
+        }
         const entries: FileEntry[] = (list as Array<{
           filename: string
           attrs: { size: number; mtime: number; mode: number }
@@ -170,6 +210,24 @@ export class Ssh2SftpAdapter implements SftpAdapter {
           resolve()
         }
       )
+    })
+  }
+
+  unlink(path: string): Promise<void> {
+    return new Promise((resolve, reject) => {
+      this.sftp.unlink(path, (err: Error | undefined) => {
+        if (err) return reject(new Error(`Delete failed for ${JSON.stringify(path)}: ${err.message}`))
+        resolve()
+      })
+    })
+  }
+
+  rmdir(path: string): Promise<void> {
+    return new Promise((resolve, reject) => {
+      this.sftp.rmdir(path, (err: Error | undefined) => {
+        if (err) return reject(new Error(`Rmdir failed for ${JSON.stringify(path)}: ${err.message}`))
+        resolve()
+      })
     })
   }
 

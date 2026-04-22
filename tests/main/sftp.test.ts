@@ -1,12 +1,16 @@
 // tests/main/sftp.test.ts
 import { vi, describe, it, expect, beforeEach } from 'vitest'
+import { createHash } from 'node:crypto'
 import type { FileEntry, SshCredential } from '../../src/shared/types'
 import type { SftpAdapter } from '../../src/main/sftp'
+import { computeFingerprint } from '../../src/main/sftp'
 
 // A test double that controls what list/upload return
 class FakeSftpAdapter implements SftpAdapter {
   entries: FileEntry[] = []
   uploadedFiles: Array<{ local: string; remote: string }> = []
+  unlinkedPaths: string[] = []
+  rmdirPaths: string[] = []
 
   async list(_path: string): Promise<FileEntry[]> { return this.entries }
 
@@ -15,6 +19,9 @@ class FakeSftpAdapter implements SftpAdapter {
     onProgress(100)
     this.uploadedFiles.push({ local, remote })
   }
+
+  async unlink(path: string): Promise<void> { this.unlinkedPaths.push(path) }
+  async rmdir(path: string): Promise<void> { this.rmdirPaths.push(path) }
 
   disconnect(): void {}
 }
@@ -84,5 +91,54 @@ describe('sftp module', () => {
 
     clearAdapter()
     expect(disconnectSpy).toHaveBeenCalled()
+  })
+
+  it('delete (file) calls unlink and not rmdir', async () => {
+    const { _setAdapterForTesting, deleteEntry } = await import('../../src/main/sftp')
+    const fake = new FakeSftpAdapter()
+    _setAdapterForTesting(fake)
+
+    await deleteEntry('Personal/foo.txt', false)
+    expect(fake.unlinkedPaths).toEqual(['Personal/foo.txt'])
+    expect(fake.rmdirPaths).toEqual([])
+  })
+
+  it('delete (empty folder) calls rmdir', async () => {
+    const { _setAdapterForTesting, deleteEntry } = await import('../../src/main/sftp')
+    const fake = new FakeSftpAdapter() // entries = [] by default
+    _setAdapterForTesting(fake)
+
+    await deleteEntry('Personal/empty', true)
+    expect(fake.rmdirPaths).toEqual(['Personal/empty'])
+    expect(fake.unlinkedPaths).toEqual([])
+  })
+})
+
+describe('computeFingerprint', () => {
+  // SSH SHA256 fingerprints are conventionally shown without '=' padding
+  // (matches `ssh-keygen -lf` and OpenSSH's `SHA256:...` prefix). Our stored
+  // fingerprints follow that convention, so the computed value must too.
+
+  it('produces unpadded base64 from a Buffer', () => {
+    const hash = createHash('sha256').update('host-key-bytes').digest()
+    const fp = computeFingerprint(hash)
+    expect(fp).not.toMatch(/=$/)
+    expect(fp).toHaveLength(43) // 32 bytes → 43 unpadded base64 chars
+  })
+
+  it('produces unpadded base64 from a hex string (ssh2 sha256 mode)', () => {
+    const hash = createHash('sha256').update('host-key-bytes').digest()
+    const fromBuffer = computeFingerprint(hash)
+    const fromHex = computeFingerprint(hash.toString('hex'))
+    expect(fromHex).toBe(fromBuffer)
+    expect(fromHex).not.toMatch(/=$/)
+  })
+
+  it('matches a known SHA256 fingerprint in OpenSSH format', () => {
+    // sha256("") = e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+    // base64 unpadded = 47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU
+    const hash = createHash('sha256').update('').digest()
+    expect(computeFingerprint(hash)).toBe('47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU')
+    expect(computeFingerprint(hash.toString('hex'))).toBe('47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU')
   })
 })
