@@ -56,6 +56,13 @@ if (!app.requestSingleInstanceLock()) {
     mainWindow = createWindow()
     registerIpcHandlers(() => mainWindow)
 
+    // Only check for updates in packaged builds
+    if (app.isPackaged) {
+      import('electron-updater').then(({ autoUpdater }) => {
+        autoUpdater.checkForUpdatesAndNotify()
+      })
+    }
+
     app.on('activate', () => {
       if (BrowserWindow.getAllWindows().length === 0) mainWindow = createWindow()
     })
