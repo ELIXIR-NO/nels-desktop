@@ -12,6 +12,11 @@ on:
 
 jobs:
   build:
+    # electron-builder needs this to create the GitHub Release on tag pushes
+    # (POST /repos/.../releases). Default GITHUB_TOKEN is read-only in many
+    # repos, which surfaces as 403 "Resource not accessible by integration".
+    permissions:
+      contents: write
     strategy:
       fail-fast: false
       matrix:
