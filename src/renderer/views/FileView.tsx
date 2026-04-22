@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react'
-import { Upload, Home, FolderKanban, RefreshCw } from 'lucide-react'
+import { Upload, Home, FolderKanban, RefreshCw, FolderPlus } from 'lucide-react'
 import type { UserInfo } from '@shared/types'
 import { FsProvider, useFs } from '../contexts/FsContext'
 import { useAuth } from '../contexts/AuthContext'
@@ -10,6 +10,7 @@ import { FileList } from '../components/FileList'
 import { UploadDock } from '../components/UploadDock'
 import { DragOverlay } from '../components/DragOverlay'
 import { SettingsDialog } from '../components/SettingsDialog'
+import { NewFolderDialog } from '../components/NewFolderDialog'
 import { Button } from '@/components/ui/button'
 import {
   Breadcrumb,
@@ -79,6 +80,7 @@ function FileViewInner({ user }: { user: UserInfo }) {
   const { refresh: refreshProjects, state: projectsState } = useProjects()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [newFolderOpen, setNewFolderOpen] = useState(false)
 
   const { root, segments } = parsePath(currentPath)
   const atRoot = segments.length === 0
@@ -120,18 +122,31 @@ function FileViewInner({ user }: { user: UserInfo }) {
           <div className="flex h-12 shrink-0 items-center justify-between gap-3 border-b bg-background px-5">
             <Breadcrumb>
               <BreadcrumbList>
+                {root.kind === 'project' && (
+                  <>
+                    <BreadcrumbItem>
+                      <span className="flex items-center gap-1.5 text-muted-foreground">
+                        {root.icon}
+                        Projects
+                      </span>
+                    </BreadcrumbItem>
+                    <BreadcrumbSeparator />
+                  </>
+                )}
                 <BreadcrumbItem>
                   {atRoot ? (
-                    <BreadcrumbPage className="flex items-center gap-1.5">
-                      {root.icon}
+                    <BreadcrumbPage className={root.kind === 'project' ? undefined : 'flex items-center gap-1.5'}>
+                      {root.kind === 'home' && root.icon}
                       {root.label}
                     </BreadcrumbPage>
                   ) : (
                     <BreadcrumbLink
                       onClick={() => navigate(root.path)}
-                      className="flex cursor-pointer items-center gap-1.5"
+                      className={root.kind === 'project'
+                        ? 'cursor-pointer'
+                        : 'flex cursor-pointer items-center gap-1.5'}
                     >
-                      {root.icon}
+                      {root.kind === 'home' && root.icon}
                       {root.label}
                     </BreadcrumbLink>
                   )}
@@ -176,6 +191,16 @@ function FileViewInner({ user }: { user: UserInfo }) {
                   aria-hidden
                 />
               </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => setNewFolderOpen(true)}
+                title="New folder"
+                aria-label="New folder"
+                className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
+              >
+                <FolderPlus className="h-4 w-4" aria-hidden />
+              </Button>
               <Button size="sm" onClick={() => fileInputRef.current?.click()}>
                 <Upload className="mr-1.5 h-3.5 w-3.5" aria-hidden />
                 Upload files
@@ -213,6 +238,11 @@ function FileViewInner({ user }: { user: UserInfo }) {
 
       <DragOverlay />
       <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} user={user} />
+      <NewFolderDialog
+        open={newFolderOpen}
+        onOpenChange={setNewFolderOpen}
+        parentPath={currentPath}
+      />
     </div>
   )
 }

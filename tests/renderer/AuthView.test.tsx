@@ -13,7 +13,7 @@ const mockNels = {
     getCredentialInfo: vi.fn().mockResolvedValue(null),
   },
   config: { get: vi.fn().mockResolvedValue(null) },
-  fs: { list: vi.fn(), upload: vi.fn(), delete: vi.fn() },
+  fs: { list: vi.fn(), upload: vi.fn(), delete: vi.fn(), mkdir: vi.fn() },
   projects: { list: vi.fn().mockResolvedValue([]) },
   on: vi.fn().mockReturnValue(() => {}),
   getPathForFile: vi.fn().mockReturnValue(''),

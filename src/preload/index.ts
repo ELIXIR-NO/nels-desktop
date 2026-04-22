@@ -19,6 +19,7 @@ const nels: NeLS = {
     upload: (localPath: string, remotePath: string, id: string) =>
       ipcRenderer.invoke('fs:upload', localPath, remotePath, id),
     delete: (path: string, isDir: boolean) => ipcRenderer.invoke('fs:delete', path, isDir),
+    mkdir: (path: string) => ipcRenderer.invoke('fs:mkdir', path),
   },
   projects: {
     list: () => ipcRenderer.invoke('projects:list'),

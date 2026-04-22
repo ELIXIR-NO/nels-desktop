@@ -1,26 +1,26 @@
 import { app, ipcMain, type BrowserWindow } from 'electron'
 import type { SafeConfig } from '@shared/types'
 import { login, logout, getSession, loginWithToken, getProjects, getSshCredentialInfo } from './auth'
-import { listFiles, uploadFile, deleteEntry, clearAdapter } from './sftp'
+import { listFiles, uploadFile, deleteEntry, createFolder, clearAdapter } from './sftp'
 import { config } from './config'
 
 /**
- * Belt-and-suspenders against catastrophic deletes. Rejects anything that
- * isn't a leaf under Personal/ or Projects/<name>/ — so the IPC can never
- * unlink a whole project, the Personal root, or traverse above $HOME via '..'.
- * Renderer code already only renders child entries, but the main process
- * shouldn't trust it.
+ * Belt-and-suspenders against touching the wrong paths. Rejects anything
+ * that isn't a leaf under Personal/ or Projects/<name>/ — so the IPC can
+ * never mkdir/delete the Personal root, a whole project, the Projects
+ * umbrella, or traverse above $HOME via '..'. Renderer code already avoids
+ * these paths, but the main process shouldn't trust it.
  */
-function assertSafeDeletePath(path: string): void {
+function assertSafeWritePath(op: string, path: string): void {
   if (path.includes('..') || path.startsWith('/')) {
-    throw new Error(`fs:delete: refusing unsafe path ${JSON.stringify(path)}`)
+    throw new Error(`${op}: refusing unsafe path ${JSON.stringify(path)}`)
   }
   const parts = path.split('/').filter(Boolean)
   const inPersonal = parts[0] === 'Personal' && parts.length >= 2
   const inProject = parts[0] === 'Projects' && parts.length >= 3
   if (!inPersonal && !inProject) {
     throw new Error(
-      `fs:delete: refusing to delete root path ${JSON.stringify(path)} — only entries under Personal/ or Projects/<name>/ are allowed`
+      `${op}: refusing root path ${JSON.stringify(path)} — only paths under Personal/ or Projects/<name>/ are allowed`
     )
   }
 }
@@ -66,8 +66,14 @@ export function registerIpcHandlers(getWin: () => BrowserWindow | null): void {
   ipcMain.handle('fs:delete', (_event, path: unknown, isDir: unknown) => {
     if (typeof path !== 'string' || !path) throw new Error('fs:delete: path must be a non-empty string')
     if (typeof isDir !== 'boolean') throw new Error('fs:delete: isDir must be a boolean')
-    assertSafeDeletePath(path)
+    assertSafeWritePath('fs:delete', path)
     return deleteEntry(path, isDir)
+  })
+
+  ipcMain.handle('fs:mkdir', (_event, path: unknown) => {
+    if (typeof path !== 'string' || !path) throw new Error('fs:mkdir: path must be a non-empty string')
+    assertSafeWritePath('fs:mkdir', path)
+    return createFolder(path)
   })
 
   ipcMain.handle('fs:upload', async (_event, localPath: unknown, remotePath: unknown, id: unknown) => {

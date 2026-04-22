@@ -62,6 +62,7 @@ interface FsContextValue extends FsState {
   queueUpload(localPath: string, filename: string): void
   dismissUpload(id: string): void
   deleteEntry(path: string, isDir: boolean): Promise<void>
+  createFolder(name: string): Promise<void>
 }
 
 const FsContext = createContext<FsContextValue | null>(null)
@@ -122,9 +123,7 @@ export function FsProvider({ children }: { children: React.ReactNode }) {
     dispatch({ type: 'UPLOAD_DISMISS', id })
   }, [])
 
-  const deleteEntry = useCallback(async (path: string, isDir: boolean) => {
-    await window.nels.fs.delete(path, isDir)
-    // Refresh the current listing so the deleted entry disappears
+  const refreshCurrent = useCallback(async () => {
     dispatch({ type: 'LOAD_START', path: state.currentPath })
     try {
       const entries = await window.nels.fs.list(state.currentPath)
@@ -134,8 +133,25 @@ export function FsProvider({ children }: { children: React.ReactNode }) {
     }
   }, [state.currentPath])
 
+  const deleteEntry = useCallback(async (path: string, isDir: boolean) => {
+    await window.nels.fs.delete(path, isDir)
+    await refreshCurrent()
+  }, [refreshCurrent])
+
+  const createFolder = useCallback(async (name: string) => {
+    const trimmed = name.trim()
+    if (!trimmed) throw new Error('Folder name is required')
+    if (trimmed.includes('/')) throw new Error('Folder name cannot contain "/"')
+    if (trimmed === '.' || trimmed === '..') throw new Error('Invalid folder name')
+    const path = `${state.currentPath}/${trimmed}`
+    await window.nels.fs.mkdir(path)
+    await refreshCurrent()
+  }, [state.currentPath, refreshCurrent])
+
   return (
-    <FsContext.Provider value={{ ...state, navigate, queueUpload, dismissUpload, deleteEntry }}>
+    <FsContext.Provider
+      value={{ ...state, navigate, queueUpload, dismissUpload, deleteEntry, createFolder }}
+    >
       {children}
     </FsContext.Provider>
   )

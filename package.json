@@ -4,6 +4,10 @@
   "description": "NeLS personal storage desktop client",
   "main": "out/main/index.js",
   "private": true,
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yasinmiran/nels-uncle.git"
+  },
   "scripts": {
     "dev": "electron-vite dev",
     "build": "electron-vite build",

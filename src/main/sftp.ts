@@ -6,6 +6,7 @@ import { getSshCredential } from './auth'
 export interface SftpAdapter {
   list(path: string): Promise<FileEntry[]>
   upload(local: string, remote: string, onProgress: (pct: number) => void): Promise<void>
+  mkdir(path: string): Promise<void>
   unlink(path: string): Promise<void>
   rmdir(path: string): Promise<void>
   disconnect(): void
@@ -63,6 +64,11 @@ export async function uploadFile(
 ): Promise<void> {
   const adapter = await getAdapter()
   return adapter.upload(localPath, remotePath, onProgress)
+}
+
+export async function createFolder(remotePath: string): Promise<void> {
+  const adapter = await getAdapter()
+  return adapter.mkdir(remotePath)
 }
 
 /**
@@ -210,6 +216,15 @@ export class Ssh2SftpAdapter implements SftpAdapter {
           resolve()
         }
       )
+    })
+  }
+
+  mkdir(path: string): Promise<void> {
+    return new Promise((resolve, reject) => {
+      this.sftp.mkdir(path, (err: Error | undefined) => {
+        if (err) return reject(new Error(`Mkdir failed for ${JSON.stringify(path)}: ${err.message}`))
+        resolve()
+      })
     })
   }
 

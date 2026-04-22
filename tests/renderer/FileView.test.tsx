@@ -34,6 +34,7 @@ const mockNels = {
     list: vi.fn().mockResolvedValue(mockEntries),
     upload: vi.fn(),
     delete: vi.fn().mockResolvedValue(undefined),
+    mkdir: vi.fn().mockResolvedValue(undefined),
   },
   projects: {
     list: vi.fn().mockResolvedValue([]),

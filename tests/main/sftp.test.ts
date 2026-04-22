@@ -11,6 +11,7 @@ class FakeSftpAdapter implements SftpAdapter {
   uploadedFiles: Array<{ local: string; remote: string }> = []
   unlinkedPaths: string[] = []
   rmdirPaths: string[] = []
+  mkdirPaths: string[] = []
 
   async list(_path: string): Promise<FileEntry[]> { return this.entries }
 
@@ -20,6 +21,7 @@ class FakeSftpAdapter implements SftpAdapter {
     this.uploadedFiles.push({ local, remote })
   }
 
+  async mkdir(path: string): Promise<void> { this.mkdirPaths.push(path) }
   async unlink(path: string): Promise<void> { this.unlinkedPaths.push(path) }
   async rmdir(path: string): Promise<void> { this.rmdirPaths.push(path) }
 
@@ -111,6 +113,15 @@ describe('sftp module', () => {
     await deleteEntry('Personal/empty', true)
     expect(fake.rmdirPaths).toEqual(['Personal/empty'])
     expect(fake.unlinkedPaths).toEqual([])
+  })
+
+  it('createFolder calls mkdir with the given path', async () => {
+    const { _setAdapterForTesting, createFolder } = await import('../../src/main/sftp')
+    const fake = new FakeSftpAdapter()
+    _setAdapterForTesting(fake)
+
+    await createFolder('Personal/new')
+    expect(fake.mkdirPaths).toEqual(['Personal/new'])
   })
 })
 

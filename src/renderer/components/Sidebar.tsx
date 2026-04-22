@@ -22,7 +22,7 @@ export function Sidebar({ currentPath, onNavigate }: SidebarProps) {
   const atHome = active === null
 
   return (
-    <aside className="flex w-52 shrink-0 flex-col border-r bg-muted/30">
+    <aside className="flex w-64 shrink-0 flex-col border-r bg-muted/30">
       <nav className="flex-1 overflow-y-auto p-2">
         <SidebarItem
           icon={<Home className="h-4 w-4" />}

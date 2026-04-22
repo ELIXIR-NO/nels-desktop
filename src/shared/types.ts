@@ -83,6 +83,7 @@ export interface NeLS {
     list(path: string): Promise<FileEntry[]>
     upload(localPath: string, remotePath: string, id: string): Promise<void>
     delete(path: string, isDir: boolean): Promise<void>
+    mkdir(path: string): Promise<void>
   }
   projects: {
     list(): Promise<NelsProject[]>
