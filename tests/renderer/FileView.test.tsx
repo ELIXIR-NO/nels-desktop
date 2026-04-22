@@ -22,20 +22,19 @@ const mockNels = {
 
 vi.stubGlobal('window', { ...global.window, nels: mockNels })
 
-import { FsProvider } from '../../src/renderer/contexts/FsContext'
 import { AuthProvider } from '../../src/renderer/contexts/AuthContext'
 import { FileView } from '../../src/renderer/views/FileView'
 
 function Wrapper({ children }: { children: React.ReactNode }) {
-  return (
-    <AuthProvider>
-      <FsProvider user={mockUser}>{children}</FsProvider>
-    </AuthProvider>
-  )
+  return <AuthProvider>{children}</AuthProvider>
 }
 
 describe('FileView', () => {
-  beforeEach(() => { vi.resetAllMocks(); mockNels.fs.list.mockResolvedValue(mockEntries) })
+  beforeEach(() => {
+    vi.resetAllMocks()
+    mockNels.fs.list.mockResolvedValue(mockEntries)
+    mockNels.on.mockReturnValue(() => {})
+  })
 
   it('shows username in header', async () => {
     render(<FileView user={mockUser} />, { wrapper: Wrapper })

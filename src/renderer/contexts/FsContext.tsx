@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useReducer, useCallback } from 'react'
-import type { FileEntry, UserInfo, UploadItem } from '@shared/types'
+import type { FileEntry, UploadItem } from '@shared/types'
 
 interface FsState {
   currentPath: string
@@ -57,9 +57,9 @@ interface FsContextValue extends FsState {
 
 const FsContext = createContext<FsContextValue | null>(null)
 
-const DEFAULT_PATH = 'Personal'
+export const DEFAULT_PATH = 'Personal'
 
-export function FsProvider({ children, user: _user }: { children: React.ReactNode; user: UserInfo }) {
+export function FsProvider({ children }: { children: React.ReactNode }) {
   const [state, dispatch] = useReducer(fsReducer, {
     currentPath: DEFAULT_PATH,
     entries: [],
@@ -88,11 +88,7 @@ export function FsProvider({ children, user: _user }: { children: React.ReactNod
     const offError = window.nels.on('upload:error', (data) => {
       dispatch({ type: 'UPLOAD_ERROR', id: data.id, message: data.message })
     })
-    return () => {
-      if (typeof offProgress === 'function') offProgress()
-      if (typeof offDone === 'function') offDone()
-      if (typeof offError === 'function') offError()
-    }
+    return () => { offProgress(); offDone(); offError() }
   }, [])
 
   const queueUpload = useCallback((localPath: string, filename: string) => {

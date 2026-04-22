@@ -1,4 +1,5 @@
 import React from 'react'
+import { DEFAULT_PATH } from '../contexts/FsContext'
 
 interface BreadcrumbProps {
   path: string
@@ -11,7 +12,7 @@ export function Breadcrumb({ path, onNavigate }: BreadcrumbProps) {
   return (
     <div style={{ padding: '8px 20px', fontSize: 13, color: '#555' }}>
       <button
-        onClick={() => onNavigate('')}
+        onClick={() => onNavigate(DEFAULT_PATH)}
         style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#555', padding: 0 }}
       >
         Home

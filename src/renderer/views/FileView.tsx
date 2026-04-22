@@ -32,7 +32,7 @@ function FileViewInner({ user }: { user: UserInfo }) {
 
 export function FileView({ user }: { user: UserInfo }) {
   return (
-    <FsProvider user={user}>
+    <FsProvider>
       <FileViewInner user={user} />
     </FsProvider>
   )
