@@ -9,7 +9,9 @@ export function UploadDropzone() {
     if (!files) return
     Array.from(files).forEach((file) => {
       // Electron adds a `path` property to File objects from drag-drop and file inputs
-      queueUpload((file as File & { path: string }).path, file.name)
+      const path = (file as File & { path?: string }).path
+      if (!path) return
+      queueUpload(path, file.name)
     })
   }
 

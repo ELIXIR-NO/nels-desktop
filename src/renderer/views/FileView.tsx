@@ -9,7 +9,7 @@ import { UploadDropzone } from '../components/UploadDropzone'
 import { UploadQueueItem } from '../components/UploadQueueItem'
 
 function FileViewInner({ user }: { user: UserInfo }) {
-  const { currentPath, entries, loading, navigate, uploads } = useFs()
+  const { currentPath, entries, loading, navigate, uploads, dismissUpload } = useFs()
   const { logout } = useAuth()
 
   function handleNavigate(name: string) {
@@ -29,7 +29,11 @@ function FileViewInner({ user }: { user: UserInfo }) {
         )}
         <UploadDropzone />
         {uploads.filter((u) => u.status !== 'done').map((item) => (
-          <UploadQueueItem key={item.id} item={item} />
+          <UploadQueueItem
+            key={item.id}
+            item={item}
+            onDismiss={item.status === 'error' ? () => dismissUpload(item.id) : undefined}
+          />
         ))}
       </div>
     </div>

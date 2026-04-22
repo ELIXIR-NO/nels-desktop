@@ -15,6 +15,7 @@ type FsAction =
   | { type: 'UPLOAD_PROGRESS'; id: string; pct: number }
   | { type: 'UPLOAD_DONE'; id: string }
   | { type: 'UPLOAD_ERROR'; id: string; message: string }
+  | { type: 'UPLOAD_DISMISS'; id: string }
 
 function fsReducer(state: FsState, action: FsAction): FsState {
   switch (action.type) {
@@ -45,6 +46,8 @@ function fsReducer(state: FsState, action: FsAction): FsState {
           u.id === action.id ? { ...u, status: 'error', error: action.message } : u
         )
       }
+    case 'UPLOAD_DISMISS':
+      return { ...state, uploads: state.uploads.filter((u) => u.id !== action.id) }
     default:
       return state
   }
@@ -53,6 +56,7 @@ function fsReducer(state: FsState, action: FsAction): FsState {
 interface FsContextValue extends FsState {
   navigate(path: string): void
   queueUpload(localPath: string, filename: string): void
+  dismissUpload(id: string): void
 }
 
 const FsContext = createContext<FsContextValue | null>(null)
@@ -96,11 +100,17 @@ export function FsProvider({ children }: { children: React.ReactNode }) {
     const remotePath = `${state.currentPath}/${filename}`
     const item: UploadItem = { id, localPath, remotePath, pct: 0, status: 'queued' }
     dispatch({ type: 'UPLOAD_QUEUE', item })
-    window.nels.fs.upload(localPath, remotePath, id)
+    window.nels.fs.upload(localPath, remotePath, id).catch((err: Error) => {
+      dispatch({ type: 'UPLOAD_ERROR', id, message: err.message })
+    })
   }, [state.currentPath])
 
+  const dismissUpload = useCallback((id: string) => {
+    dispatch({ type: 'UPLOAD_DISMISS', id })
+  }, [])
+
   return (
-    <FsContext.Provider value={{ ...state, navigate, queueUpload }}>
+    <FsContext.Provider value={{ ...state, navigate, queueUpload, dismissUpload }}>
       {children}
     </FsContext.Provider>
   )
