@@ -29,7 +29,17 @@ Download the installer for your OS from the [latest release](https://github.com/
 
 ### macOS
 
-Open the `.dmg`, drag the app into `Applications`. On first launch, macOS will block it ("cannot be opened because it is from an unidentified developer") — right-click the app, choose **Open**, then **Open** again in the prompt. You only need to do this once.
+Open the `.dmg`, drag NeLS into `Applications`, then clear the quarantine flag macOS attaches to downloaded apps:
+
+```bash
+xattr -dr com.apple.quarantine /Applications/NeLS.app
+```
+
+Launch normally after that. You only need to do this once per install.
+
+Without the `xattr` step, macOS (especially Apple Silicon) shows **"NeLS is damaged and cannot be opened. You should move it to the Bin."** — that's the Gatekeeper check refusing to run unsigned binaries. If it's already been moved to the Bin, restore it, run the command above, then launch. The binary isn't actually damaged.
+
+This will go away when the app is code-signed and notarized by an Apple Developer account.
 
 ### Windows
 
@@ -86,6 +96,7 @@ These are normally only useful if you're building a custom version.
 - **Login stuck on "Connecting…"** — the `nels://` redirect didn't arrive. Use the token-paste fallback on the login screen.
 - **"Fingerprint mismatch"** — the SSH host key on the server has rotated, or you're pointed at the wrong environment. File an issue with the reported fingerprint.
 - **Uploads fail in a project** — your role may not grant write access. Data Managers and PIs can write/delete; Normal Users in some projects are read-only.
+- **macOS says the app is damaged / moves it to Bin** — it's not damaged; it's the Gatekeeper check on unsigned apps. See the macOS install section above for the `xattr` command that clears the quarantine flag.
 
 ## Reporting issues
 
