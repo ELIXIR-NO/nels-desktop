@@ -3,7 +3,16 @@ import { useAuth } from '../contexts/AuthContext'
 
 export function AuthView() {
   const { status, error, login } = useAuth()
-  const isLoading = status === 'authenticating' || status === 'loading'
+
+  if (status === 'loading') {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', color: '#999' }}>
+        Loading…
+      </div>
+    )
+  }
+
+  const isConnecting = status === 'authenticating'
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100vh', gap: 16 }}>
@@ -11,10 +20,10 @@ export function AuthView() {
       <p style={{ color: '#666', margin: 0 }}>Personal storage</p>
       <button
         onClick={login}
-        disabled={isLoading}
-        style={{ marginTop: 24, padding: '10px 28px', fontSize: 16, cursor: isLoading ? 'not-allowed' : 'pointer' }}
+        disabled={isConnecting}
+        style={{ marginTop: 24, padding: '10px 28px', fontSize: 16, cursor: isConnecting ? 'not-allowed' : 'pointer' }}
       >
-        {isLoading ? 'Connecting…' : 'Login with Feide'}
+        {isConnecting ? 'Connecting…' : 'Login with Feide'}
       </button>
       {error && (
         <p role="alert" style={{ color: 'red', maxWidth: 340, textAlign: 'center' }}>

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useReducer } from 'react'
+import React, { createContext, useContext, useEffect, useReducer, useCallback } from 'react'
 import type { UserInfo } from '@shared/types'
 
 type AuthStatus = 'loading' | 'unauthenticated' | 'authenticating' | 'authenticated' | 'error'
@@ -48,12 +48,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   })
 
   useEffect(() => {
-    window.nels.auth.getSession().then((user) => {
-      dispatch({ type: 'SESSION_CHECKED', user })
-    })
+    window.nels.auth.getSession()
+      .then((user) => dispatch({ type: 'SESSION_CHECKED', user }))
+      .catch(() => dispatch({ type: 'SESSION_CHECKED', user: null }))
   }, [])
 
-  async function login() {
+  const login = useCallback(async () => {
     dispatch({ type: 'LOGIN_START' })
     try {
       const user = await window.nels.auth.login()
@@ -61,16 +61,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch (err) {
       dispatch({ type: 'LOGIN_ERROR', error: (err as Error).message })
     }
-  }
+  }, [])
 
-  async function logout() {
+  const logout = useCallback(async () => {
     try {
       await window.nels.auth.logout()
     } finally {
       // Always clear local state even if the server-side logout fails.
       dispatch({ type: 'LOGOUT' })
     }
-  }
+  }, [])
 
   return (
     <AuthContext.Provider value={{ ...state, login, logout }}>
