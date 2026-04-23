@@ -1,8 +1,9 @@
 import React from 'react'
-import { Check, LogOut, Monitor, Moon, Sun, Palette, Settings } from 'lucide-react'
+import { Check, CircleHelp, LogOut, Monitor, Moon, Sun, Palette, Settings } from 'lucide-react'
 import nelsLogo from '@/assets/nels-logo.png'
 import { useTheme, type Theme } from '../contexts/ThemeContext'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -20,6 +21,7 @@ interface HeaderProps {
   name: string
   onLogout(): void
   onOpenSettings(): void
+  onOpenHowItWorks(): void
 }
 
 function initials(name: string): string {
@@ -37,7 +39,7 @@ const themeOptions: { value: Theme; label: string; icon: React.ComponentType<{ c
   { value: 'system', label: 'System', icon: Monitor },
 ]
 
-export function Header({ name, onLogout, onOpenSettings }: HeaderProps) {
+export function Header({ name, onLogout, onOpenSettings, onOpenHowItWorks }: HeaderProps) {
   const { theme, setTheme } = useTheme()
 
   return (
@@ -49,7 +51,19 @@ export function Header({ name, onLogout, onOpenSettings }: HeaderProps) {
         draggable={false}
       />
 
-      <DropdownMenu>
+      <div className="flex items-center gap-1">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onOpenHowItWorks}
+          title="How it works"
+          aria-label="How it works"
+          className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
+        >
+          <CircleHelp className="h-4 w-4" aria-hidden />
+        </Button>
+
+        <DropdownMenu>
         <DropdownMenuTrigger className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm outline-none transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring">
           <Avatar className="h-7 w-7">
             <AvatarFallback className="text-xs font-medium">{initials(name)}</AvatarFallback>
@@ -99,6 +113,7 @@ export function Header({ name, onLogout, onOpenSettings }: HeaderProps) {
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
+      </div>
     </header>
   )
 }

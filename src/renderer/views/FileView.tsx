@@ -10,6 +10,7 @@ import { FileList } from '../components/FileList'
 import { UploadDock } from '../components/UploadDock'
 import { DragOverlay } from '../components/DragOverlay'
 import { SettingsDialog } from '../components/SettingsDialog'
+import { HowItWorksDialog } from '../components/HowItWorksDialog'
 import { NewFolderDialog } from '../components/NewFolderDialog'
 import { Button } from '@/components/ui/button'
 import {
@@ -80,6 +81,7 @@ function FileViewInner({ user }: { user: UserInfo }) {
   const { refresh: refreshProjects, state: projectsState } = useProjects()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [howItWorksOpen, setHowItWorksOpen] = useState(false)
   const [newFolderOpen, setNewFolderOpen] = useState(false)
 
   const { root, segments } = parsePath(currentPath)
@@ -113,6 +115,7 @@ function FileViewInner({ user }: { user: UserInfo }) {
         name={user.name}
         onLogout={logout}
         onOpenSettings={() => setSettingsOpen(true)}
+        onOpenHowItWorks={() => setHowItWorksOpen(true)}
       />
 
       <div className="flex min-h-0 flex-1">
@@ -238,6 +241,7 @@ function FileViewInner({ user }: { user: UserInfo }) {
 
       <DragOverlay />
       <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} user={user} />
+      <HowItWorksDialog open={howItWorksOpen} onOpenChange={setHowItWorksOpen} />
       <NewFolderDialog
         open={newFolderOpen}
         onOpenChange={setNewFolderOpen}

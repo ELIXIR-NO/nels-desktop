@@ -83,8 +83,11 @@ describe('FileView', () => {
 
   it('lists files after load', async () => {
     render(<FileView user={mockUser} />, { wrapper: Wrapper })
-    await waitFor(() => expect(screen.getByText('Projects')).toBeInTheDocument())
-    expect(screen.getByText('sample.fastq')).toBeInTheDocument()
+    // Wait on a file-list-only entry rather than "Projects" — the sidebar
+    // renders "Projects" as a section label before fs.list resolves, so
+    // waiting on that matched too early and raced the list render on
+    // slower Windows runners.
+    expect(await screen.findByText('sample.fastq')).toBeInTheDocument()
   })
 
   it('navigates into a directory on click', async () => {

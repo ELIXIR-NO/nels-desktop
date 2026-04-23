@@ -1,8 +1,8 @@
 # NeLS Desktop
 
-A desktop app for uploading, browsing, and managing files in your [NeLS](https://nels.elixir.no) personal storage and project folders — without configuring SSH tunnels, keys, or ProxyJump.
+A desktop app for uploading, browsing, and managing files over SFTP in your [NeLS](https://nels.elixir.no) personal storage and project folders — without configuring SSH tunnels, keys, or ProxyJump.
 
-Paste your access token, drag files into the window, done.
+Paste your access token, drag files into the window, done. Curious what happens under the hood? The **?** button in the header shows you.
 
 ---
 
