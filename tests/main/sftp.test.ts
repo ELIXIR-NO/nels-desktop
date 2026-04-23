@@ -95,6 +95,38 @@ describe('sftp module', () => {
     expect(disconnectSpy).toHaveBeenCalled()
   })
 
+  // Guards the reconnect-after-drop invariant. The session-lost callback
+  // wired in getAdapter nulls the module-level singleton. We can't open a
+  // real ssh2 session here, so we simulate that end state via
+  // clearAdapter and confirm the module treats the next call as needing
+  // a fresh adapter rather than silently reusing the dead one.
+  it('reuses the singleton until cleared, then accepts a fresh adapter', async () => {
+    const { _setAdapterForTesting, clearAdapter, listFiles } =
+      await import('../../src/main/sftp')
+    const credMock = vi.mocked(getSshCredential)
+
+    const first = new FakeSftpAdapter()
+    first.entries = [{ name: 'a.txt', size: 1, mtime: new Date(), isDir: false }]
+    const disconnectSpy = vi.spyOn(first, 'disconnect')
+    _setAdapterForTesting(first)
+
+    const before = await listFiles('/')
+    expect(before.map((e) => e.name)).toEqual(['a.txt'])
+    expect(credMock).not.toHaveBeenCalled()
+
+    // Simulate what the session-lost callback does: drop the cached adapter.
+    clearAdapter()
+    expect(disconnectSpy).toHaveBeenCalledTimes(1)
+
+    const second = new FakeSftpAdapter()
+    second.entries = [{ name: 'b.txt', size: 2, mtime: new Date(), isDir: false }]
+    _setAdapterForTesting(second)
+
+    const after = await listFiles('/')
+    expect(after.map((e) => e.name)).toEqual(['b.txt'])
+    expect(first).not.toBe(second)
+  })
+
   it('delete (file) calls unlink and not rmdir', async () => {
     const { _setAdapterForTesting, deleteEntry } = await import('../../src/main/sftp')
     const fake = new FakeSftpAdapter()

@@ -1,4 +1,4 @@
-import { Client } from 'ssh2'
+import { Client, type SFTPWrapper } from 'ssh2'
 import type { FileEntry, SshCredential } from '@shared/types'
 import { config } from './config'
 import { getSshCredential } from './auth'
@@ -40,7 +40,13 @@ async function getAdapter(): Promise<SftpAdapter> {
   if (currentAdapter) return currentAdapter
   const cred = await getSshCredential()
   if (!cred) throw new Error('No SSH credentials — please log in again')
-  currentAdapter = await Ssh2SftpAdapter.connect(cred)
+  currentAdapter = await Ssh2SftpAdapter.connect(cred, () => {
+    // Bastion or data-host session died. Drop the cached adapter so the
+    // next IPC call reopens a fresh ProxyJump instead of failing forever
+    // with opaque ssh2 errors after a VPN blip or laptop sleep.
+    console.log('[sftp] session lost, will reconnect on next call')
+    currentAdapter = null
+  })
   return currentAdapter
 }
 
@@ -92,29 +98,59 @@ export async function deleteEntry(remotePath: string, isDir: boolean): Promise<v
 export class Ssh2SftpAdapter implements SftpAdapter {
   private bastion: Client
   private dataClient: Client
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private sftp: any // ssh2 SFTPWrapper — no public types available
+  private sftp: SFTPWrapper
+  // Flips when the caller explicitly disconnects, so the close/error
+  // handlers wired for mid-session drops don't misreport an orderly
+  // shutdown as a session loss.
+  private closedDeliberately = false
 
-  private constructor(bastion: Client, dataClient: Client, sftp: unknown) {
+  private constructor(bastion: Client, dataClient: Client, sftp: SFTPWrapper) {
     this.bastion = bastion
     this.dataClient = dataClient
     this.sftp = sftp
   }
 
-  static connect(cred: SshCredential): Promise<Ssh2SftpAdapter> {
+  static connect(
+    cred: SshCredential,
+    onSessionLost?: () => void
+  ): Promise<Ssh2SftpAdapter> {
     return new Promise((resolve, reject) => {
       let settled = false
+      let adapter: Ssh2SftpAdapter | null = null
       const privateKey = Buffer.from(cred.sshKey)
 
       const done = (err: Error | null, value?: Ssh2SftpAdapter) => {
         if (settled) return
         settled = true
         if (err) reject(err)
-        else resolve(value!)
+        else {
+          adapter = value!
+          resolve(value!)
+        }
+      }
+
+      // After the initial handshake settles, the error handlers below
+      // stop short-circuiting into `done()` (guarded by `settled`).
+      // Instead they and the `close` handlers fire at most one
+      // `onSessionLost` callback so the cached adapter gets invalidated
+      // on VPN timeouts, laptop-sleep drops, or idle disconnects —
+      // unless the caller explicitly disconnected, in which case
+      // `closedDeliberately` keeps these handlers silent.
+      let sessionLostFired = false
+      const fireSessionLost = (): void => {
+        if (sessionLostFired) return
+        if (adapter?.closedDeliberately) return
+        sessionLostFired = true
+        onSessionLost?.()
       }
 
       const bastion = new Client()
       bastion.on('error', (err) => {
+        if (settled) {
+          // Post-handshake error — treat as a session drop.
+          fireSessionLost()
+          return
+        }
         // Handshake timeouts usually mean the network is blocking SSH or
         // the staging environment's VPN isn't connected — surface that hint
         // instead of a bare "timed out" so users don't have to guess.
@@ -129,14 +165,24 @@ export class Ssh2SftpAdapter implements SftpAdapter {
           : ''
         done(new Error(`Bastion SSH error: ${err.message}${hint}`))
       })
+      bastion.on('close', () => {
+        if (settled) fireSessionLost()
+      })
       bastion.on('ready', () => {
         bastion.forwardOut('127.0.0.1', 0, config.ssh.dataHost, 22, (err, stream) => {
           if (err) { bastion.end(); return done(new Error(`ProxyJump failed: ${err.message}`)) }
 
           const dataClient = new Client()
           dataClient.on('error', (err) => {
+            if (settled) {
+              fireSessionLost()
+              return
+            }
             bastion.end()
             done(new Error(`Data host SSH error: ${err.message}`))
+          })
+          dataClient.on('close', () => {
+            if (settled) fireSessionLost()
           })
           dataClient.on('ready', () => {
             dataClient.sftp((err, sftp) => {
@@ -147,8 +193,7 @@ export class Ssh2SftpAdapter implements SftpAdapter {
               }
               // Resolve the SFTP session's home directory once for logging /
               // diagnostics. Helps spot chroot / wrong-mount surprises.
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              ;(sftp as any).realpath('.', (rpErr: Error | undefined, home: string | undefined) => {
+              sftp.realpath('.', (rpErr, home) => {
                 if (rpErr) console.warn('[sftp] realpath(.) failed:', rpErr.message)
                 else console.log('[sftp] session home:', home)
               })
@@ -193,15 +238,12 @@ export class Ssh2SftpAdapter implements SftpAdapter {
   async list(path: string): Promise<FileEntry[]> {
     return new Promise((resolve, reject) => {
       console.log('[sftp] readdir', JSON.stringify(path))
-      this.sftp.readdir(path, (err: Error | undefined, list: unknown[]) => {
+      this.sftp.readdir(path, (err, list) => {
         if (err) {
           console.error('[sftp] readdir error for', JSON.stringify(path), '->', err.message)
           return reject(new Error(`readdir failed for ${JSON.stringify(path)}: ${err.message}`))
         }
-        const entries: FileEntry[] = (list as Array<{
-          filename: string
-          attrs: { size: number; mtime: number; mode: number }
-        }>)
+        const entries: FileEntry[] = list
           .filter((f) => f.filename !== '.' && f.filename !== '..')
           .map((f) => ({
             name: f.filename,
@@ -261,6 +303,10 @@ export class Ssh2SftpAdapter implements SftpAdapter {
   }
 
   disconnect(): void {
+    // Marked before end() so the close/error handlers installed in
+    // connect() know this is an orderly shutdown and skip the
+    // onSessionLost callback.
+    this.closedDeliberately = true
     // end() can throw if the socket is already closed — best-effort cleanup
     try { this.dataClient.end() } catch { /* ignore */ }
     try { this.bastion.end() } catch { /* ignore */ }
