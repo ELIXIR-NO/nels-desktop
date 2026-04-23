@@ -3,9 +3,14 @@ import type { UserInfo, SshCredential, NelsProject, SshCredentialInfo } from '@s
 import { keychainRead, keychainWrite, keychainDelete } from './keychain'
 import { config } from './config'
 
-let pendingResolve: ((token: string) => void) | null = null
-let pendingReject: ((err: Error) => void) | null = null
-let pendingTimeout: ReturnType<typeof setTimeout> | null = null
+type AuthCallback = {
+  resolve: (token: string) => void
+  reject: (err: Error) => void
+  timeout: ReturnType<typeof setTimeout>
+  settled: boolean
+}
+
+let pending: AuthCallback | null = null
 
 export function parseTokenFromUrl(url: string): string | null {
   try {
@@ -18,18 +23,20 @@ export function parseTokenFromUrl(url: string): string | null {
 }
 
 export function resolveAuthCallback(url: string): void {
-  if (!pendingResolve) return
-  const resolve = pendingResolve
-  const reject = pendingReject!
-  clearTimeout(pendingTimeout!)
-  pendingResolve = null
-  pendingReject = null
-  pendingTimeout = null
+  if (pending === null) {
+    console.warn('[auth] received nels:// callback with no pending login; ignoring')
+    return
+  }
+  if (pending.settled) return
+  const current = pending
+  current.settled = true
+  clearTimeout(current.timeout)
+  pending = null
   const token = parseTokenFromUrl(url)
   if (token) {
-    resolve(token)
+    current.resolve(token)
   } else {
-    reject(new Error('No token found in OAuth callback URL'))
+    current.reject(new Error('No token found in OAuth callback URL'))
   }
 }
 
@@ -66,15 +73,25 @@ async function completeLogin(token: string): Promise<UserInfo> {
 
 export async function login(): Promise<UserInfo> {
   const token = await new Promise<string>((resolve, reject) => {
-    if (pendingReject) pendingReject(new Error('Login superseded'))
+    if (pending !== null && !pending.settled) {
+      const prev = pending
+      prev.settled = true
+      clearTimeout(prev.timeout)
+      prev.reject(new Error('Login superseded'))
+    }
 
-    pendingResolve = resolve
-    pendingReject = reject
-    pendingTimeout = setTimeout(() => {
-      pendingResolve = null
-      pendingReject = null
-      reject(new Error('Login timed out after 5 minutes'))
-    }, 5 * 60 * 1000)
+    const cb: AuthCallback = {
+      resolve,
+      reject,
+      settled: false,
+      timeout: setTimeout(() => {
+        if (pending === null || pending !== cb || cb.settled) return
+        cb.settled = true
+        pending = null
+        reject(new Error('Login timed out after 5 minutes'))
+      }, 5 * 60 * 1000),
+    }
+    pending = cb
 
     const url =
       `${config.oauthBase}/authorize` +

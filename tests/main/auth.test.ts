@@ -86,4 +86,53 @@ describe('auth', () => {
       expect(token).toBeNull()
     })
   })
+
+  describe('resolveAuthCallback', () => {
+    it('only propagates the first call when invoked twice', async () => {
+      vi.resetModules()
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+      mockRead.mockResolvedValue(null)
+      vi.stubGlobal('fetch', vi.fn().mockImplementation(async (url: string) => {
+        if (url.endsWith('/my-account')) {
+          return { ok: true, json: async () => ({ nels_id: 1, name: 'Test User' }) }
+        }
+        return {
+          ok: true,
+          json: async () => ({ host: 'h', username: 'u', sshKey: 'k' }),
+        }
+      }))
+
+      const { login, resolveAuthCallback } = await import('../../src/main/auth')
+      const pending = login()
+      // Yield once so the login() promise installs its resolver.
+      await Promise.resolve()
+
+      resolveAuthCallback('nels://auth/callback#token=first')
+      // A second callback after settle must be a no-op (no throw, no override).
+      resolveAuthCallback('nels://auth/callback#token=second')
+
+      const user = await pending
+      expect(user).toEqual({ userId: 1, name: 'Test User' })
+      // Only the first token was used to fetch credentials.
+      const fetchMock = vi.mocked(globalThis.fetch)
+      const authHeaders = fetchMock.mock.calls.map(([, init]) => {
+        const h = (init as { headers?: Record<string, string> } | undefined)?.headers
+        return h?.Authorization
+      })
+      expect(authHeaders).toContain('Bearer first')
+      expect(authHeaders).not.toContain('Bearer second')
+      warn.mockRestore()
+    })
+
+    it('warns and ignores stray callback with no pending login', async () => {
+      vi.resetModules()
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+      const { resolveAuthCallback } = await import('../../src/main/auth')
+      resolveAuthCallback('nels://auth/callback#token=stray')
+      expect(warn).toHaveBeenCalledWith(
+        '[auth] received nels:// callback with no pending login; ignoring'
+      )
+      warn.mockRestore()
+    })
+  })
 })
