@@ -3,6 +3,7 @@ import { AuthProvider, useAuth } from './contexts/AuthContext'
 import { ThemeProvider } from './contexts/ThemeContext'
 import { AuthView } from './views/AuthView'
 import { FileView } from './views/FileView'
+import { EnvBanner } from './components/EnvBanner'
 import { Toaster } from '@/components/ui/sonner'
 
 function AppInner() {
@@ -28,7 +29,12 @@ export function App() {
   return (
     <ThemeProvider>
       <AuthProvider>
-        <AppInner />
+        <div className="flex h-full flex-col">
+          <EnvBanner />
+          <div className="min-h-0 flex-1">
+            <AppInner />
+          </div>
+        </div>
         <Toaster position="bottom-right" richColors closeButton />
       </AuthProvider>
     </ThemeProvider>
