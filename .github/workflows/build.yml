@@ -44,17 +44,23 @@ jobs:
       - name: Run tests
         run: npm test
 
-      # Pick build-time env vars based on tag shape.
-      # Tags with "-staging." in them get baked against the staging endpoints
-      # (matching config.ts defaults). Any other tag build gets production
-      # values injected, so bumping package.json to `0.1.X` (no suffix) and
-      # tagging `v0.1.X` is all it takes to cut a prod release.
+      # Pick build-time env vars based on tag shape, using an explicit allowlist.
+      # Pure semver tags (vMAJOR.MINOR.PATCH) build against PRODUCTION endpoints.
+      # Tags of the form vMAJOR.MINOR.PATCH-staging.N build against STAGING
+      # (no env override; config.ts defaults apply). Any other shape is refused:
+      # silently miscategorising something like v0.1.0-beta.1 as prod is the
+      # worst class of CI misfire, so fail the step instead.
+      # Non-tag builds (branch pushes, PRs) fall through to STAGING defaults.
       - name: Configure build target
         shell: bash
+        env:
+          REF_NAME: ${{ github.ref_name }}
+          REF: ${{ github.ref }}
         run: |
-          REF='${{ github.ref_name }}'
-          if [[ '${{ github.ref }}' == refs/tags/v* ]] && [[ "$REF" != *-staging.* ]]; then
-            echo "Build target: PRODUCTION (tag $REF)"
+          if [[ "$REF" != refs/tags/* ]]; then
+            echo "Build target: STAGING (non-tag ref $REF_NAME)"
+          elif [[ "$REF_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Build target: PRODUCTION (tag $REF_NAME)"
             {
               echo 'VITE_API_BASE=https://nels.elixir.no/nels-api2'
               echo 'VITE_OAUTH_BASE=https://nels.elixir.no/oauth2'
@@ -63,8 +69,12 @@ jobs:
               echo 'VITE_SSH_LOGIN_FP=D88VKPfCDylk3J83XGSIRrGk6UyLwx4nC85ljmjhFCY'
               echo 'VITE_SSH_DATA_FP=jtIIVCQPOXFvOkUIaTrfwYroV/3mEZ6PL7/tMMphO4o'
             } >> "$GITHUB_ENV"
+          elif [[ "$REF_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+-staging\.[0-9]+$ ]]; then
+            echo "Build target: STAGING (tag $REF_NAME)"
           else
-            echo "Build target: STAGING (ref $REF)"
+            echo "Unrecognised tag shape: $REF_NAME" >&2
+            echo "Expected vMAJOR.MINOR.PATCH (production) or vMAJOR.MINOR.PATCH-staging.N (staging)." >&2
+            exit 1
           fi
 
       - name: Build
