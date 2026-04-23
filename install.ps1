@@ -3,7 +3,11 @@
 # Usage:
 #   iwr -useb https://raw.githubusercontent.com/yasinmiran/nels-desktop/main/install.ps1 | iex
 #
-# Fetches the latest release from GitHub and runs the NSIS installer.
+# To install a staging (prerelease) build instead of the latest stable one,
+# set the NELS_STAGING environment variable to 1 first:
+#   $env:NELS_STAGING=1; iwr -useb https://.../install.ps1 | iex
+#
+# Fetches the matching release from GitHub and runs the NSIS installer.
 
 $ErrorActionPreference = 'Stop'
 
@@ -19,11 +23,22 @@ function Write-Fail($Message) {
     exit 1
 }
 
-Write-Info "Fetching latest release metadata from $Repo..."
-try {
-    $release = Invoke-RestMethod -Uri "https://api.github.com/repos/$Repo/releases/latest" -UseBasicParsing
-} catch {
-    Write-Fail "Could not reach GitHub: $($_.Exception.Message)"
+if ($env:NELS_STAGING -eq '1') {
+    Write-Info "NELS_STAGING=1 — selecting the latest -staging prerelease from $Repo"
+    try {
+        $all = Invoke-RestMethod -Uri "https://api.github.com/repos/$Repo/releases" -UseBasicParsing
+    } catch {
+        Write-Fail "Could not reach GitHub: $($_.Exception.Message)"
+    }
+    $release = $all | Where-Object { $_.tag_name -like '*-staging.*' } | Select-Object -First 1
+    if (-not $release) { Write-Fail "No -staging prerelease found on $Repo." }
+} else {
+    Write-Info "Fetching latest release metadata from $Repo..."
+    try {
+        $release = Invoke-RestMethod -Uri "https://api.github.com/repos/$Repo/releases/latest" -UseBasicParsing
+    } catch {
+        Write-Fail "Could not fetch a stable release. Set `$env:NELS_STAGING=1 if you want a staging build. ($($_.Exception.Message))"
+    }
 }
 
 $tag = $release.tag_name

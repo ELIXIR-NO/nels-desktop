@@ -93,3 +93,15 @@ jobs:
             release/*.zip
             release/*.deb
           if-no-files-found: ignore
+
+      # electron-builder creates the release as non-prerelease by default,
+      # which means GitHub's /releases/latest endpoint would return staging
+      # builds — breaking the install one-liner for everyone who isn't
+      # opting into NELS_STAGING=1. Flip the flag for -staging.* tags.
+      # Runs once per matrix leg; subsequent calls are idempotent.
+      - name: Mark staging release as prerelease
+        if: startsWith(github.ref, 'refs/tags/v') && contains(github.ref_name, '-staging.')
+        shell: bash
+        run: gh release edit "${{ github.ref_name }}" --prerelease --repo "${{ github.repository }}"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

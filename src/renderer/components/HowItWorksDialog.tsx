@@ -13,6 +13,11 @@ interface HowItWorksDialogProps {
   onOpenChange(open: boolean): void
 }
 
+// Build-time env — matches src/main/config.ts defaults so the dialog
+// reflects whichever environment this binary was built against.
+const loginHost = import.meta.env.VITE_SSH_LOGIN_HOST ?? 'slogin.nels.elixir.no'
+const dataHost = import.meta.env.VITE_SSH_DATA_HOST ?? 'sdata.nels.elixir.no'
+
 export function HowItWorksDialog({ open, onOpenChange }: HowItWorksDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -29,14 +34,18 @@ export function HowItWorksDialog({ open, onOpenChange }: HowItWorksDialogProps) 
             icon={<KeyRound className="h-4 w-4" aria-hidden />}
             title="Signing in"
           >
-            You paste an access token from the NeLS web UI. The app validates it
-            against the NeLS REST API (<code className="font-mono text-[13px]">/my-account</code>)
-            and then requests an SSH credential
-            (<code className="font-mono text-[13px]">/users/&#123;id&#125;/do</code>), which
-            returns a short-lived private key. The token and the private key are
-            stored in your OS keychain — GNOME Keyring on Linux, Keychain on
-            macOS, Credential Manager on Windows. Neither ever touches disk as a
-            plain file.
+            You sign in either with <strong>Feide</strong> (the app opens the
+            OAuth flow in your browser and receives the access token back via a
+            <code className="font-mono text-[13px]"> nels://</code> redirect),
+            or by pasting a token from the NeLS web UI directly. Either way, the
+            app validates the token against the NeLS REST API
+            (<code className="font-mono text-[13px]">/my-account</code>) and then
+            requests an SSH credential
+            (<code className="font-mono text-[13px]">/users/&#123;id&#125;/do</code>),
+            which returns a short-lived private key. The token and the private
+            key are stored in your OS keychain — GNOME Keyring on Linux,
+            Keychain on macOS, Credential Manager on Windows. Neither ever
+            touches disk as a plain file.
           </Step>
 
           <Step
@@ -44,9 +53,9 @@ export function HowItWorksDialog({ open, onOpenChange }: HowItWorksDialogProps) 
             title="Connecting"
           >
             Storage sits behind a bastion. The app opens an SSH connection to
-            the bastion (<code className="font-mono text-[13px]">login.nels.elixir.no</code>),
+            the bastion (<code className="font-mono text-[13px]">{loginHost}</code>),
             then forwards a TCP channel through it to the data host
-            (<code className="font-mono text-[13px]">data.nels.elixir.no</code>), and
+            (<code className="font-mono text-[13px]">{dataHost}</code>), and
             opens a second SSH session over that channel. This is the same
             <code className="font-mono text-[13px]"> ProxyJump</code> pattern you'd
             write in <code className="font-mono text-[13px]">~/.ssh/config</code> — done

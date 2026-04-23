@@ -37,15 +37,23 @@ The `/releases/latest` endpoint on GitHub skips prereleases, so the install one-
 ### macOS and Linux (one-liner)
 
 ```bash
+# Latest production release
 curl -fsSL https://raw.githubusercontent.com/yasinmiran/nels-desktop/main/install.sh | bash
+
+# Latest -staging prerelease (opt-in)
+NELS_STAGING=1 curl -fsSL https://raw.githubusercontent.com/yasinmiran/nels-desktop/main/install.sh | bash
 ```
 
-The script downloads the latest *production* release, clears the macOS quarantine flag, and places the app in `/Applications` (macOS) or `~/Applications` (Linux). Until a production release exists, the script will fail — grab a staging build manually (see below).
+The script downloads the right release, clears the macOS quarantine flag, and places the app in `/Applications` (macOS) or `~/Applications` (Linux). The staging path requires `python3` (preinstalled on modern macOS and most Linux distributions) to filter prereleases.
 
 ### Windows (one-liner)
 
 ```powershell
+# Latest production release
 iwr -useb https://raw.githubusercontent.com/yasinmiran/nels-desktop/main/install.ps1 | iex
+
+# Latest -staging prerelease (opt-in)
+$env:NELS_STAGING=1; iwr -useb https://raw.githubusercontent.com/yasinmiran/nels-desktop/main/install.ps1 | iex
 ```
 
 ### Manual download (required for staging builds)

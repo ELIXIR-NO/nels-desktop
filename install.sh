@@ -5,6 +5,10 @@
 # Usage:
 #   curl -fsSL https://raw.githubusercontent.com/yasinmiran/nels-desktop/main/install.sh | bash
 #
+# To install a staging (prerelease) build instead of the latest stable one,
+# set NELS_STAGING=1:
+#   NELS_STAGING=1 curl -fsSL https://.../install.sh | bash
+#
 # Fetches the latest release from GitHub, downloads the right asset for your
 # OS, and installs it. On macOS it clears the Gatekeeper quarantine flag so
 # you won't see the "damaged" error. On Linux it drops the AppImage into
@@ -44,8 +48,18 @@ case "$OS" in
     ;;
 esac
 
-log "Fetching latest release metadata from $REPO..."
-META="$(curl -fsSL "https://api.github.com/repos/$REPO/releases/latest")"
+if [[ "${NELS_STAGING:-}" == "1" ]]; then
+  command -v python3 >/dev/null 2>&1 \
+    || err "NELS_STAGING=1 needs python3 to filter prereleases, but python3 wasn't found."
+  log "NELS_STAGING=1 — selecting the latest -staging prerelease from $REPO"
+  META="$(curl -fsSL "https://api.github.com/repos/$REPO/releases" \
+    | python3 -c 'import json,sys; rs=json.load(sys.stdin); r=next((x for x in rs if "-staging." in x.get("tag_name","")), None); sys.stdout.write(json.dumps(r or {}))')"
+  [[ "$META" != "{}" ]] || err "No -staging prerelease found on $REPO."
+else
+  log "Fetching latest release metadata from $REPO..."
+  META="$(curl -fsSL "https://api.github.com/repos/$REPO/releases/latest")" \
+    || err "Could not fetch a stable release. Set NELS_STAGING=1 if you want a staging build."
+fi
 
 TAG="$(printf '%s' "$META" | grep -m1 '"tag_name"' | sed -E 's/.*"tag_name": *"([^"]+)".*/\1/')"
 URL="$(printf '%s' "$META" \
