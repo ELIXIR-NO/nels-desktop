@@ -117,6 +117,19 @@ case "$OS" in
     xattr -dr com.apple.quarantine "$APP_DEST" 2>/dev/null || true
 
     hdiutil detach "$MOUNT" -quiet
+
+    # Desktop shortcut via symlink. macOS doesn't have a native "shortcut"
+    # concept for apps — Finder treats a symlink to an .app bundle as a
+    # launchable alias, which is the closest equivalent. Convention on
+    # macOS is to launch via Spotlight / Launchpad / /Applications, so
+    # this is best-effort: we skip silently if ~/Desktop doesn't exist.
+    if [[ -d "$HOME/Desktop" ]]; then
+      DESKTOP_LINK="$HOME/Desktop/$APP_NAME.app"
+      [[ -L "$DESKTOP_LINK" || -e "$DESKTOP_LINK" ]] && rm -rf "$DESKTOP_LINK"
+      ln -s "$APP_DEST" "$DESKTOP_LINK"
+      log "Created Desktop shortcut: $DESKTOP_LINK"
+    fi
+
     log "Installed. Launch from Applications or run: open -a \"$APP_NAME\""
     ;;
   Linux)
@@ -132,7 +145,52 @@ case "$OS" in
     mv "$ASSET" "$DEST"
     chmod +x "$DEST"
     log "Installed to $DEST"
-    log "Launch with: $DEST"
+
+    # System integration: a .desktop file in ~/.local/share/applications/
+    # makes the app discoverable from the activities overview / app menu,
+    # and a copy on ~/Desktop/ creates the actual desktop shortcut.
+    ICON_DIR="$HOME/.local/share/icons"
+    APP_DIR="$HOME/.local/share/applications"
+    ICON="$ICON_DIR/nels-desktop.png"
+    ENTRY="$APP_DIR/nels-desktop.desktop"
+    mkdir -p "$ICON_DIR" "$APP_DIR"
+
+    if [[ ! -f "$ICON" ]]; then
+      curl -fsSL "https://raw.githubusercontent.com/$REPO/main/build/icon.png" -o "$ICON" \
+        || log "Warning: couldn't fetch icon from GitHub — shortcut will fall back to the default icon."
+    fi
+
+    cat > "$ENTRY" <<EOF
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=$APP_NAME
+GenericName=NeLS file uploader
+Comment=Upload and browse files in NeLS storage
+Exec=$DEST %U
+Icon=$ICON
+Categories=Utility;Network;FileTransfer;
+Terminal=false
+StartupWMClass=NeLS
+EOF
+    chmod +x "$ENTRY"
+
+    # Refresh the desktop DB so the menu picks up the new entry without
+    # a logout — silently ignore if the command isn't installed.
+    update-desktop-database "$APP_DIR" >/dev/null 2>&1 || true
+
+    # Desktop shortcut. Modern GNOME/KDE requires .desktop files on the
+    # desktop to be marked trusted before they'll launch without a prompt.
+    # gio handles that on GNOME; KDE honours the executable bit alone.
+    if [[ -d "$HOME/Desktop" ]]; then
+      DESKTOP_LINK="$HOME/Desktop/$APP_NAME.desktop"
+      cp "$ENTRY" "$DESKTOP_LINK"
+      chmod +x "$DESKTOP_LINK"
+      gio set "$DESKTOP_LINK" metadata::trusted true >/dev/null 2>&1 || true
+      log "Created Desktop shortcut: $DESKTOP_LINK"
+    fi
+
+    log "Launch with: $DEST (or find NeLS in your app menu)"
     log "Tip: if you don't have libsecret installed, run 'sudo apt install libsecret-1-0' (Debian/Ubuntu) or 'sudo dnf install libsecret' (Fedora/RHEL)."
     ;;
 esac

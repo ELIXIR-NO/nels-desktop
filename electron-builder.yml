@@ -38,6 +38,11 @@ linux:
 nsis:
   oneClick: true
   perMachine: false
+  # Both default to true already; being explicit so it's obvious from the
+  # config alone that desktop + Start menu shortcuts get created.
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: NeLS
 
 asarUnpack:
   - node_modules/keytar/**
