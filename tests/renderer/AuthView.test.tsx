@@ -21,7 +21,7 @@ const mockNels = {
 
 vi.stubGlobal('window', { ...global.window, nels: mockNels })
 
-import { AuthProvider, useAuth } from '../../src/renderer/contexts/AuthContext'
+import { AuthProvider } from '../../src/renderer/contexts/AuthContext'
 import { AuthView } from '../../src/renderer/views/AuthView'
 
 function Wrapper({ children }: { children: React.ReactNode }) {
@@ -31,29 +31,57 @@ function Wrapper({ children }: { children: React.ReactNode }) {
 describe('AuthView', () => {
   beforeEach(() => { vi.resetAllMocks() })
 
-  it('renders login button in idle state', async () => {
+  it('renders token input and disabled login button initially', async () => {
     mockNels.auth.getSession.mockResolvedValue(null)
     render(<AuthView />, { wrapper: Wrapper })
-    const button = await screen.findByRole('button', { name: /login/i })
-    expect(button).toBeInTheDocument()
+    const input = await screen.findByLabelText(/access token/i)
+    expect(input).toBeInTheDocument()
+    const button = screen.getByRole('button', { name: /login/i })
+    expect(button).toBeDisabled()
+  })
+
+  it('enables login button once a token is entered', async () => {
+    mockNels.auth.getSession.mockResolvedValue(null)
+    render(<AuthView />, { wrapper: Wrapper })
+    const input = await screen.findByLabelText(/access token/i)
+    fireEvent.change(input, { target: { value: 'abc123' } })
+    const button = screen.getByRole('button', { name: /login/i })
     expect(button).not.toBeDisabled()
   })
 
-  it('calls auth.login when button clicked', async () => {
+  it('calls auth.loginWithToken on submit', async () => {
     mockNels.auth.getSession.mockResolvedValue(null)
-    mockNels.auth.login.mockResolvedValue({ userId: 1, name: 'Test' })
+    mockNels.auth.loginWithToken.mockResolvedValue({ userId: 1, name: 'Test' })
     render(<AuthView />, { wrapper: Wrapper })
-    const button = await screen.findByRole('button', { name: /login/i })
-    fireEvent.click(button)
-    await waitFor(() => expect(mockNels.auth.login).toHaveBeenCalled())
+    const input = await screen.findByLabelText(/access token/i)
+    fireEvent.change(input, { target: { value: 'abc123' } })
+    fireEvent.click(screen.getByRole('button', { name: /login/i }))
+    await waitFor(() =>
+      expect(mockNels.auth.loginWithToken).toHaveBeenCalledWith('abc123')
+    )
   })
 
   it('shows error when login fails', async () => {
     mockNels.auth.getSession.mockResolvedValue(null)
-    mockNels.auth.login.mockRejectedValue(new Error('Login failed'))
+    mockNels.auth.loginWithToken.mockRejectedValue(new Error('Token rejected'))
     render(<AuthView />, { wrapper: Wrapper })
-    const button = await screen.findByRole('button', { name: /login/i })
-    fireEvent.click(button)
-    await waitFor(() => expect(screen.getByText(/login failed/i)).toBeInTheDocument())
+    const input = await screen.findByLabelText(/access token/i)
+    fireEvent.change(input, { target: { value: 'bad-token' } })
+    fireEvent.click(screen.getByRole('button', { name: /login/i }))
+    await waitFor(() =>
+      expect(screen.getByText(/token rejected/i)).toBeInTheDocument()
+    )
+  })
+
+  it('trims whitespace from the token before submitting', async () => {
+    mockNels.auth.getSession.mockResolvedValue(null)
+    mockNels.auth.loginWithToken.mockResolvedValue({ userId: 1, name: 'Test' })
+    render(<AuthView />, { wrapper: Wrapper })
+    const input = await screen.findByLabelText(/access token/i)
+    fireEvent.change(input, { target: { value: '   spaced   ' } })
+    fireEvent.click(screen.getByRole('button', { name: /login/i }))
+    await waitFor(() =>
+      expect(mockNels.auth.loginWithToken).toHaveBeenCalledWith('spaced')
+    )
   })
 })

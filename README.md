@@ -2,17 +2,13 @@
 
 A desktop app for uploading, browsing, and managing files in your [NeLS](https://nels.elixir.no) personal storage and project folders — without configuring SSH tunnels, keys, or ProxyJump.
 
-Sign in with Feide, drag files into the window, done.
-
-> **Heads up — this build points at the NeLS *staging* environment (`staging.nels.elixir.no`).** Anything you upload goes to staging storage, not production.
->
-> **Staging requires VPN.** You need to be on the NeLS / Sigma2 / institutional VPN that gives you access to staging, otherwise the SFTP connection will time out with *"Bastion SSH error: timed out while waiting for handshake"*. Production endpoints don't require VPN.
+Paste your access token, drag files into the window, done.
 
 ---
 
 ## What you can do
 
-- **Log in with Feide / NeLS** — the same OAuth flow you use on the web.
+- **Sign in with an access token** from the NeLS web UI — single sign-on is temporarily unavailable while the implicit-grant flow is being stabilised.
 - **Browse Personal and project storage** — projects you have filesystem access to show up in the sidebar automatically.
 - **Upload files** by dragging them onto the window or picking them with the Upload button. Progress is visible in a dock at the bottom; multiple uploads run in parallel.
 - **Create folders** inside Personal or any project.
@@ -21,40 +17,50 @@ Sign in with Feide, drag files into the window, done.
 
 ## Install
 
-Download the installer for your OS from the [latest release](https://github.com/yasinmiran/nels-desktop/releases/latest):
+### macOS and Linux (one-liner)
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/yasinmiran/nels-desktop/main/install.sh | bash
+```
+
+The script downloads the latest release, clears the macOS quarantine flag, and places the app in `/Applications` (macOS) or `~/Applications` (Linux).
+
+### Windows (one-liner)
+
+Run in PowerShell:
+
+```powershell
+iwr -useb https://raw.githubusercontent.com/yasinmiran/nels-desktop/main/install.ps1 | iex
+```
+
+### Manual download
+
+If you prefer to download yourself, grab the installer from the [latest release](https://github.com/yasinmiran/nels-desktop/releases/latest):
 
 | OS | File |
 |---|---|
-| macOS (Intel + Apple Silicon) | `NeLS-x.y.z.dmg` |
+| macOS (Apple Silicon) | `NeLS-x.y.z.dmg` |
 | Windows 10 / 11 | `NeLS Setup x.y.z.exe` |
 | Linux | `NeLS-x.y.z.AppImage` |
 
-### macOS
-
-Open the `.dmg`, drag NeLS into `Applications`, then clear the quarantine flag macOS attaches to downloaded apps:
+**macOS manual install:** open the `.dmg`, drag NeLS into `Applications`, then run:
 
 ```bash
 xattr -dr com.apple.quarantine /Applications/NeLS.app
 ```
 
-Launch normally after that. You only need to do this once per install.
+That clears the quarantine flag macOS attaches to downloaded apps. Without it, Apple Silicon shows **"NeLS is damaged and cannot be opened"** — that's Gatekeeper refusing to run unsigned binaries, not an actual broken download. You only need to do this once per install. It will go away once the app is signed and notarized with an Apple Developer ID.
 
-Without the `xattr` step, macOS (especially Apple Silicon) shows **"NeLS is damaged and cannot be opened. You should move it to the Bin."** — that's the Gatekeeper check refusing to run unsigned binaries. If it's already been moved to the Bin, restore it, run the command above, then launch. The binary isn't actually damaged.
+**Windows manual install:** run the `.exe`. SmartScreen may warn ("Windows protected your PC") — click **More info → Run anyway**.
 
-This will go away when the app is code-signed and notarized by an Apple Developer account.
-
-### Windows
-
-Run the `.exe`. SmartScreen may warn ("Windows protected your PC") — click **More info → Run anyway**.
-
-### Linux (AppImage)
+**Linux manual install:**
 
 ```bash
 chmod +x NeLS-*.AppImage
 ./NeLS-*.AppImage
 ```
 
-On GNOME/KDE you can also double-click to run. You'll need `libsecret` for the keychain integration:
+You'll need `libsecret` for the keychain integration:
 
 ```bash
 # Debian/Ubuntu
@@ -64,42 +70,42 @@ sudo apt install libsecret-1-0
 sudo dnf install libsecret
 ```
 
-The first time the app needs your SSH key it will be stored in your OS keychain (GNOME Keyring / macOS Keychain / Windows Credential Manager). Your SSH key never touches disk as a file.
+The first time the app needs your SSH key, it will be stored in your OS keychain (GNOME Keyring / macOS Keychain / Windows Credential Manager). Your SSH key never touches disk as a file.
 
 ## Using the app
 
-1. **Launch** the app. You'll see a sign-in screen.
-2. **Click "Login with Feide"** — your browser opens, you complete the normal Feide flow, and the app picks up the session automatically.
-   - If the redirect doesn't come back (happens sometimes on Linux), copy an access token from the NeLS web UI and paste it into the "Or sign in with a token" field.
-3. You'll land in **Personal**. Your projects are listed in the left sidebar.
-4. **Upload** by dragging files anywhere into the window, or click **Upload files** in the top bar.
-5. **Create a folder** with the folder+ icon.
-6. **Delete** by hovering a row and clicking the trash icon. You'll be asked to confirm.
-7. **Settings** (user menu → Settings) shows the exact endpoints and session the app is talking to — useful when troubleshooting.
+1. **Launch** the app. You'll see the login screen.
+2. **Grab an access token** from the NeLS web UI (your profile page on `nels.elixir.no`).
+3. **Paste it** into the Access token field and click **Login**. The app validates the token, fetches your SSH credential, and stores it in your OS keychain.
+4. You'll land in **Personal**. Your projects appear in the left sidebar.
+5. **Upload** by dragging files anywhere into the window, or click **Upload files** in the top bar.
+6. **Create a folder** with the folder+ icon.
+7. **Delete** by hovering a row and clicking the trash icon. You'll be asked to confirm.
+8. **Settings** (user menu → Settings) shows the exact endpoints and session the app is talking to — useful when troubleshooting.
 
 ## Configuration
 
-The installed build points at **staging** out of the box. Environment variables (set before launch) can override this:
+The installed build targets **production** out of the box. Environment variables (set before launch) can override this:
 
 | Variable | Default |
 |---|---|
-| `VITE_API_BASE` | `https://staging.nels.elixir.no/nels-api2` |
-| `VITE_OAUTH_BASE` | `https://staging.nels.elixir.no/oauth2` |
-| `VITE_SSH_LOGIN_HOST` | `slogin.nels.elixir.no` |
-| `VITE_SSH_DATA_HOST` | `sdata.nels.elixir.no` |
-| `VITE_SSH_LOGIN_FP` | staging fingerprint |
-| `VITE_SSH_DATA_FP` | staging fingerprint |
+| `VITE_API_BASE` | `https://nels.elixir.no/nels-api2` |
+| `VITE_OAUTH_BASE` | `https://nels.elixir.no/oauth2` |
+| `VITE_SSH_LOGIN_HOST` | `login.nels.elixir.no` |
+| `VITE_SSH_DATA_HOST` | `data.nels.elixir.no` |
+| `VITE_SSH_LOGIN_FP` | production fingerprint |
+| `VITE_SSH_DATA_FP` | production fingerprint |
 
-These are normally only useful if you're building a custom version.
+These are normally only useful if you're building a custom version or pointing a dev build at staging.
 
 ## Troubleshooting
 
-- **"Bastion SSH error: timed out while waiting for handshake"** — your machine can't reach `slogin.nels.elixir.no:22` at all. If you're on staging, connect to your VPN first. You can also run `nc -vz slogin.nels.elixir.no 22` from a terminal to confirm reachability.
+- **"Bastion SSH error: timed out while waiting for handshake"** — your machine can't reach `login.nels.elixir.no:22`. Check your firewall or network egress rules. You can confirm reachability with `nc -vz login.nels.elixir.no 22`.
 - **"Could not load folder"** — open **Settings** from the user menu, check the SFTP and API URLs look right, and share the "Copy report" output when asking for help.
-- **Login stuck on "Connecting…"** — the `nels://` redirect didn't arrive. Use the token-paste fallback on the login screen.
+- **"Token validation failed"** — the token has expired or is malformed. Get a fresh one from the web UI.
 - **"Fingerprint mismatch"** — the SSH host key on the server has rotated, or you're pointed at the wrong environment. File an issue with the reported fingerprint.
 - **Uploads fail in a project** — your role may not grant write access. Data Managers and PIs can write/delete; Normal Users in some projects are read-only.
-- **macOS says the app is damaged / moves it to Bin** — it's not damaged; it's the Gatekeeper check on unsigned apps. See the macOS install section above for the `xattr` command that clears the quarantine flag.
+- **macOS says the app is damaged / moves it to Bin** — it's not damaged; it's Gatekeeper blocking unsigned apps. See the macOS install section above for the `xattr` command that clears the quarantine flag. Using the install script does this automatically.
 
 ## Reporting issues
 

@@ -5,6 +5,10 @@ copyright: Copyright © 2026 NeLS
 directories:
   output: release
 
+# Ad-hoc codesigns the macOS .app after packaging — see scripts/afterPack.js.
+# No-op on Windows and Linux.
+afterPack: ./scripts/afterPack.js
+
 files:
   - out/**/*
   - package.json
