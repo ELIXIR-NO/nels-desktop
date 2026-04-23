@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useEffect, useReducer, useCallback } from 'react'
+import { toast } from 'sonner'
 import type { FileEntry, UploadItem } from '@shared/types'
 
 interface FsState {
@@ -106,14 +107,14 @@ export function FsProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   const queueUpload = useCallback((localPath: string, filename: string) => {
-    const id = `${Date.now()}-${filename}`
+    if (!localPath) {
+      toast.error(`Could not resolve local file path for ${filename}`)
+      return
+    }
+    const id = crypto.randomUUID()
     const remotePath = `${state.currentPath}/${filename}`
     const item: UploadItem = { id, localPath, remotePath, pct: 0, status: 'queued' }
     dispatch({ type: 'UPLOAD_QUEUE', item })
-    if (!localPath) {
-      dispatch({ type: 'UPLOAD_ERROR', id, message: 'Could not resolve local file path' })
-      return
-    }
     window.nels.fs.upload(localPath, remotePath, id).catch((err: Error) => {
       dispatch({ type: 'UPLOAD_ERROR', id, message: err.message })
     })
