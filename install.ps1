@@ -57,8 +57,41 @@ try {
     Write-Fail "Download failed: $($_.Exception.Message)"
 }
 
-Write-Info "Running installer (SmartScreen may warn — click 'More info' > 'Run anyway' if prompted)"
-Start-Process -FilePath $tmp -Wait
+# Strip the "Mark of the Web" so the downloaded .exe doesn't trip the
+# zone-based SmartScreen block. The separate reputation-based SmartScreen
+# dialog ("Windows protected your PC") still fires for unsigned binaries
+# and requires a manual click-through until we have an Authenticode cert.
+Unblock-File -Path $tmp -ErrorAction SilentlyContinue
+
+Write-Info "Running installer..."
+Write-Info "If 'Windows protected your PC' appears, click 'More info' -> 'Run anyway'."
+
+$proc = Start-Process -FilePath $tmp -Wait -PassThru
+$exitCode = $proc.ExitCode
 
 Remove-Item $tmp -ErrorAction SilentlyContinue
-Write-Info "Done. Launch $AppName from the Start menu."
+
+# Verify the install actually landed. electron-builder oneClick NSIS puts the
+# app in %LOCALAPPDATA%\Programs\<ProductName>\.
+$expected = Join-Path "$env:LOCALAPPDATA\Programs" "$AppName\$AppName.exe"
+if (Test-Path $expected) {
+    Write-Info "Installed at $expected"
+    Write-Info "Launch $AppName from the Start menu, or run: & '$expected'"
+} elseif ($exitCode -ne 0) {
+    Write-Fail @"
+Installer exited with code $exitCode and $AppName is not at $expected.
+Almost always this means SmartScreen blocked the unsigned installer and
+was dismissed before you could click through.
+
+Retry manually:
+  `$url = '$($asset.browser_download_url)'
+  `$out = "`$env:USERPROFILE\Downloads\$($asset.name)"
+  Invoke-WebRequest `$url -OutFile `$out
+  Unblock-File `$out
+  Start-Process `$out
+
+When 'Windows protected your PC' appears, click 'More info' -> 'Run anyway'.
+"@
+} else {
+    Write-Fail "Installer reported success but $expected is missing. File an issue with a screenshot of the installer window if you saw one."
+}
