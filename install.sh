@@ -6,13 +6,14 @@
 #   curl -fsSL https://raw.githubusercontent.com/yasinmiran/nels-desktop/main/install.sh | bash
 #
 # To install a staging (prerelease) build instead of the latest stable one,
-# set NELS_STAGING=1:
-#   NELS_STAGING=1 curl -fsSL https://.../install.sh | bash
+# pass --staging as a positional argument (remember the `-s --`), or put the
+# env var on `bash` itself (not on `curl`):
+#   curl -fsSL https://.../install.sh | bash -s -- --staging
+#   curl -fsSL https://.../install.sh | NELS_STAGING=1 bash
 #
-# Fetches the latest release from GitHub, downloads the right asset for your
-# OS, and installs it. On macOS it clears the Gatekeeper quarantine flag so
-# you won't see the "damaged" error. On Linux it drops the AppImage into
-# ~/Applications and marks it executable.
+# Why not `NELS_STAGING=1 curl ... | bash`? That form only scopes the env var
+# to `curl`; `bash` reads the script with an empty env and ignores it. Classic
+# shell gotcha.
 #
 set -euo pipefail
 
@@ -23,6 +24,19 @@ trap 'rm -rf "$TMPDIR"' EXIT
 
 log()  { printf '\033[0;36m[nels]\033[0m %s\n' "$*"; }
 err()  { printf '\033[0;31m[nels]\033[0m %s\n' "$*" >&2; exit 1; }
+
+# Parse args: --staging selects the latest prerelease. Env var works too.
+WANT_STAGING=0
+if [[ "${NELS_STAGING:-}" == "1" ]]; then WANT_STAGING=1; fi
+for arg in "$@"; do
+  case "$arg" in
+    --staging) WANT_STAGING=1 ;;
+    -h|--help)
+      grep '^#' "$0" | sed 's/^# \{0,1\}//' | head -n 20
+      exit 0
+      ;;
+  esac
+done
 
 if [[ "${EUID:-$(id -u)}" -eq 0 ]]; then
   err "Do not run this script as root. Run it as your normal user."
@@ -48,17 +62,20 @@ case "$OS" in
     ;;
 esac
 
-if [[ "${NELS_STAGING:-}" == "1" ]]; then
+if [[ "$WANT_STAGING" == "1" ]]; then
   command -v python3 >/dev/null 2>&1 \
-    || err "NELS_STAGING=1 needs python3 to filter prereleases, but python3 wasn't found."
-  log "NELS_STAGING=1 — selecting the latest -staging prerelease from $REPO"
+    || err "Staging mode needs python3 to filter prereleases, but python3 wasn't found."
+  log "Staging mode — selecting the latest -staging prerelease from $REPO"
+  # Pretty-print the filtered release so each asset's browser_download_url
+  # ends up on its own line — the grep pattern below needs that to avoid
+  # picking a random asset off a single-line compact JSON blob.
   META="$(curl -fsSL "https://api.github.com/repos/$REPO/releases" \
-    | python3 -c 'import json,sys; rs=json.load(sys.stdin); r=next((x for x in rs if "-staging." in x.get("tag_name","")), None); sys.stdout.write(json.dumps(r or {}))')"
+    | python3 -c 'import json,sys; rs=json.load(sys.stdin); r=next((x for x in rs if "-staging." in x.get("tag_name","")), None); sys.stdout.write(json.dumps(r or {}, indent=2))')"
   [[ "$META" != "{}" ]] || err "No -staging prerelease found on $REPO."
 else
   log "Fetching latest release metadata from $REPO..."
   META="$(curl -fsSL "https://api.github.com/repos/$REPO/releases/latest")" \
-    || err "Could not fetch a stable release. Set NELS_STAGING=1 if you want a staging build."
+    || err "Could not fetch a stable release. Try: curl ... | bash -s -- --staging"
 fi
 
 TAG="$(printf '%s' "$META" | grep -m1 '"tag_name"' | sed -E 's/.*"tag_name": *"([^"]+)".*/\1/')"

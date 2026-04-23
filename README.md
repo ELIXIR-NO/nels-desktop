@@ -40,11 +40,13 @@ The `/releases/latest` endpoint on GitHub skips prereleases, so the install one-
 # Latest production release
 curl -fsSL https://raw.githubusercontent.com/yasinmiran/nels-desktop/main/install.sh | bash
 
-# Latest -staging prerelease (opt-in)
-NELS_STAGING=1 curl -fsSL https://raw.githubusercontent.com/yasinmiran/nels-desktop/main/install.sh | bash
+# Latest -staging prerelease (opt-in — pass the flag as a positional arg)
+curl -fsSL https://raw.githubusercontent.com/yasinmiran/nels-desktop/main/install.sh | bash -s -- --staging
 ```
 
 The script downloads the right release, clears the macOS quarantine flag, and places the app in `/Applications` (macOS) or `~/Applications` (Linux). The staging path requires `python3` (preinstalled on modern macOS and most Linux distributions) to filter prereleases.
+
+> Heads up: `NELS_STAGING=1 curl ... | bash` **does not work** — the env var scopes to `curl`, not `bash`. Use `--staging` as shown above, or `curl ... | NELS_STAGING=1 bash` if you prefer env vars.
 
 ### Windows (one-liner)
 
