@@ -1,3 +1,5 @@
+// electron-vite injects these import.meta.env.VITE_* values at build time;
+// the renderer reads the same names via src/renderer/lib/env.ts.
 export const config = {
   apiBase: import.meta.env.VITE_API_BASE ?? 'https://staging.nels.elixir.no/nels-api2',
   oauthBase: import.meta.env.VITE_OAUTH_BASE ?? 'https://staging.nels.elixir.no/oauth2',

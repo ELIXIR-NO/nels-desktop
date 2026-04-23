@@ -2,19 +2,12 @@ import React, { useState } from 'react'
 import { Loader2, TriangleAlert } from 'lucide-react'
 import nelsLogo from '@/assets/nels-logo.png'
 import { useAuth } from '../contexts/AuthContext'
+import { env } from '@/lib/env'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Separator } from '@/components/ui/separator'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-
-// Same detection EnvBanner uses — staging builds bake VITE_API_BASE pointing
-// at staging.nels.elixir.no, prod builds override via CI. Keep these in sync.
-const apiBase = import.meta.env.VITE_API_BASE ?? 'https://staging.nels.elixir.no/nels-api2'
-const host = (() => {
-  try { return new URL(apiBase).host } catch { return 'nels.elixir.no' }
-})()
-const isStaging = host.startsWith('staging.') || host.includes('.staging.')
 
 export function AuthView() {
   const { status, error, login, loginWithToken } = useAuth()
@@ -58,11 +51,11 @@ export function AuthView() {
             <span>
               Feide single sign-on is currently unreliable while the OAuth
               implicit-grant flow is being stabilised.
-              {isStaging && <> If it doesn't come back, paste an access token below.</>}
+              {env.isStaging && <> If it doesn't come back, paste an access token below.</>}
             </span>
           </div>
 
-          {isStaging && (
+          {env.isStaging && (
             <>
               <div className="flex items-center gap-2">
                 <Separator className="flex-1" />
@@ -77,7 +70,7 @@ export function AuthView() {
                   type="password"
                   value={token}
                   onChange={(e) => setToken(e.target.value)}
-                  placeholder={`Token from ${host}`}
+                  placeholder={`Token from ${env.host}`}
                   disabled={isConnecting}
                   aria-label="Access token"
                   onKeyDown={(e) => { if (e.key === 'Enter') submitToken() }}

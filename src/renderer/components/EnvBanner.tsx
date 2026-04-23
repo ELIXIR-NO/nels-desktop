@@ -1,15 +1,9 @@
 import React from 'react'
 import { TriangleAlert } from 'lucide-react'
-
-// Detect the build target from the renderer's baked-in env. Defaults match
-// src/main/config.ts — staging is the dev default. CI injects VITE_API_BASE
-// to production for non-staging tag builds.
-const apiBase = import.meta.env.VITE_API_BASE ?? 'https://staging.nels.elixir.no/nels-api2'
-const host = (() => { try { return new URL(apiBase).host } catch { return apiBase } })()
-const isStaging = host.startsWith('staging.') || host.includes('.staging.')
+import { env } from '@/lib/env'
 
 export function EnvBanner() {
-  if (!isStaging) return null
+  if (!env.isStaging) return null
   return (
     <div
       role="status"
@@ -17,7 +11,7 @@ export function EnvBanner() {
     >
       <TriangleAlert className="h-3.5 w-3.5" aria-hidden />
       <span>
-        Staging build — uploads go to <code className="rounded-sm bg-amber-500/15 px-1 py-0.5 font-mono">{host}</code>
+        Staging build — uploads go to <code className="rounded-sm bg-amber-500/15 px-1 py-0.5 font-mono">{env.host}</code>
       </span>
     </div>
   )

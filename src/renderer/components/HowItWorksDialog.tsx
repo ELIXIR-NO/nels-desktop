@@ -1,5 +1,6 @@
 import React from 'react'
 import { KeyRound, Link2, ShieldCheck, ArrowUpDown, Lock } from 'lucide-react'
+import { env } from '@/lib/env'
 import {
   Dialog,
   DialogContent,
@@ -12,11 +13,6 @@ interface HowItWorksDialogProps {
   open: boolean
   onOpenChange(open: boolean): void
 }
-
-// Build-time env — matches src/main/config.ts defaults so the dialog
-// reflects whichever environment this binary was built against.
-const loginHost = import.meta.env.VITE_SSH_LOGIN_HOST ?? 'slogin.nels.elixir.no'
-const dataHost = import.meta.env.VITE_SSH_DATA_HOST ?? 'sdata.nels.elixir.no'
 
 export function HowItWorksDialog({ open, onOpenChange }: HowItWorksDialogProps) {
   return (
@@ -53,9 +49,9 @@ export function HowItWorksDialog({ open, onOpenChange }: HowItWorksDialogProps) 
             title="Connecting"
           >
             Storage sits behind a bastion. The app opens an SSH connection to
-            the bastion (<code className="font-mono text-[13px]">{loginHost}</code>),
+            the bastion (<code className="font-mono text-[13px]">{env.loginHost}</code>),
             then forwards a TCP channel through it to the data host
-            (<code className="font-mono text-[13px]">{dataHost}</code>), and
+            (<code className="font-mono text-[13px]">{env.dataHost}</code>), and
             opens a second SSH session over that channel. This is the same
             <code className="font-mono text-[13px]"> ProxyJump</code> pattern you'd
             write in <code className="font-mono text-[13px]">~/.ssh/config</code> — done
