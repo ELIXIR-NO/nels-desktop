@@ -12,6 +12,7 @@ import { DragOverlay } from '../components/DragOverlay'
 import { SettingsDialog } from '../components/SettingsDialog'
 import { HowItWorksDialog } from '../components/HowItWorksDialog'
 import { NewFolderDialog } from '../components/NewFolderDialog'
+import { parsePath } from '../lib/paths'
 import { Button } from '@/components/ui/button'
 import {
   Breadcrumb,
@@ -22,58 +23,6 @@ import {
   BreadcrumbSeparator,
 } from '@/components/ui/breadcrumb'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
-
-interface PathRoot {
-  kind: 'home' | 'project'
-  label: string
-  path: string
-  icon: React.ReactNode
-}
-
-interface ParsedPath {
-  root: PathRoot
-  segments: { label: string; path: string }[]
-}
-
-// SFTP paths are real filesystem paths under $HOME:
-//   'Personal'                → NeLS personal storage
-//   'Personal/foo'            → subfolder inside Personal
-//   'Projects/<name>'         → project root
-//   'Projects/<name>/foo/bar' → nested folder inside a project
-// We never navigate to $HOME itself — writes there aren't NeLS-managed.
-function parsePath(currentPath: string): ParsedPath {
-  const parts = currentPath.split('/').filter(Boolean)
-  if (parts[0] === 'Projects' && parts[1]) {
-    const projectName = parts[1]
-    const rest = parts.slice(2)
-    return {
-      root: {
-        kind: 'project',
-        label: projectName,
-        path: `Projects/${projectName}`,
-        icon: <FolderKanban className="h-3.5 w-3.5" aria-hidden />,
-      },
-      segments: rest.map((label, i) => ({
-        label,
-        path: ['Projects', projectName, ...rest.slice(0, i + 1)].join('/'),
-      })),
-    }
-  }
-  // Everything else (Personal, Personal/foo, ...) is rooted in Personal.
-  const rest = parts[0] === 'Personal' ? parts.slice(1) : parts
-  return {
-    root: {
-      kind: 'home',
-      label: 'Personal',
-      path: 'Personal',
-      icon: <Home className="h-3.5 w-3.5" aria-hidden />,
-    },
-    segments: rest.map((label, i) => ({
-      label,
-      path: ['Personal', ...rest.slice(0, i + 1)].join('/'),
-    })),
-  }
-}
 
 function FileViewInner({ user }: { user: UserInfo }) {
   const { currentPath, entries, loading, error, navigate, queueUpload } = useFs()
@@ -87,6 +36,9 @@ function FileViewInner({ user }: { user: UserInfo }) {
   const { root, segments } = parsePath(currentPath)
   const atRoot = segments.length === 0
   const isRefreshing = loading || projectsState.status === 'loading'
+  const rootIcon = root.kind === 'project'
+    ? <FolderKanban className="h-3.5 w-3.5" aria-hidden />
+    : <Home className="h-3.5 w-3.5" aria-hidden />
 
   function handleNavigate(name: string) {
     const newPath = currentPath ? `${currentPath}/${name}` : name
@@ -129,7 +81,7 @@ function FileViewInner({ user }: { user: UserInfo }) {
                   <>
                     <BreadcrumbItem>
                       <span className="flex items-center gap-1.5 text-muted-foreground">
-                        {root.icon}
+                        {rootIcon}
                         Projects
                       </span>
                     </BreadcrumbItem>
@@ -139,7 +91,7 @@ function FileViewInner({ user }: { user: UserInfo }) {
                 <BreadcrumbItem>
                   {atRoot ? (
                     <BreadcrumbPage className={root.kind === 'project' ? undefined : 'flex items-center gap-1.5'}>
-                      {root.kind === 'home' && root.icon}
+                      {root.kind === 'home' && rootIcon}
                       {root.label}
                     </BreadcrumbPage>
                   ) : (
@@ -149,7 +101,7 @@ function FileViewInner({ user }: { user: UserInfo }) {
                         ? 'cursor-pointer'
                         : 'flex cursor-pointer items-center gap-1.5'}
                     >
-                      {root.kind === 'home' && root.icon}
+                      {root.kind === 'home' && rootIcon}
                       {root.label}
                     </BreadcrumbLink>
                   )}

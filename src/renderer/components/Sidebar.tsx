@@ -1,6 +1,7 @@
 import React from 'react'
 import { Home, Folder, RefreshCw, Loader2, AlertCircle } from 'lucide-react'
 import { useProjects } from '../contexts/ProjectsContext'
+import { getProjectName } from '../lib/paths'
 import { cn } from '@/lib/utils'
 
 interface SidebarProps {
@@ -8,17 +9,9 @@ interface SidebarProps {
   onNavigate(path: string): void
 }
 
-// Returns the project name if the current path is rooted in a project, else null.
-// Project paths start with `Projects/<name>/...` on the NeLS SFTP filesystem.
-function projectRoot(path: string): string | null {
-  const parts = path.split('/').filter(Boolean)
-  if (parts[0] !== 'Projects' || !parts[1]) return null
-  return parts[1]
-}
-
 export function Sidebar({ currentPath, onNavigate }: SidebarProps) {
   const { state, refresh } = useProjects()
-  const active = projectRoot(currentPath)
+  const active = getProjectName(currentPath)
   const atHome = active === null
 
   return (
