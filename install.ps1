@@ -1,7 +1,7 @@
 # NeLS Desktop installer for Windows.
 #
 # Usage:
-#   iwr -useb https://raw.githubusercontent.com/yasinmiran/nels-desktop/main/install.ps1 | iex
+#   iwr -useb https://raw.githubusercontent.com/ELIXIR-NO/nels-desktop/main/install.ps1 | iex
 #
 # To install a staging (prerelease) build instead of the latest stable one,
 # set NELS_STAGING=1 in the same session first:
@@ -20,7 +20,7 @@ function Install-NeLS {
 
     $ErrorActionPreference = 'Stop'
 
-    $Repo = 'yasinmiran/nels-desktop'
+    $Repo = 'ELIXIR-NO/nels-desktop'
     $AppName = 'NeLS'
 
     function Write-Info($Message) {

@@ -3,7 +3,7 @@
 # NeLS Desktop installer for macOS and Linux.
 #
 # Usage:
-#   curl -fsSL https://raw.githubusercontent.com/yasinmiran/nels-desktop/main/install.sh | bash
+#   curl -fsSL https://raw.githubusercontent.com/ELIXIR-NO/nels-desktop/main/install.sh | bash
 #
 # To install a staging (prerelease) build instead of the latest stable one,
 # pass --staging as a positional argument (remember the `-s --`), or put the
@@ -17,7 +17,7 @@
 #
 set -euo pipefail
 
-REPO="yasinmiran/nels-desktop"
+REPO="ELIXIR-NO/nels-desktop"
 APP_NAME="NeLS"
 TMPDIR="$(mktemp -d)"
 trap 'rm -rf "$TMPDIR"' EXIT

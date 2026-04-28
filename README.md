@@ -38,10 +38,10 @@ The `/releases/latest` endpoint on GitHub skips prereleases, so the install one-
 
 ```bash
 # Latest production release
-curl -fsSL https://raw.githubusercontent.com/yasinmiran/nels-desktop/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/ELIXIR-NO/nels-desktop/main/install.sh | bash
 
 # Latest -staging prerelease (opt-in — pass the flag as a positional arg)
-curl -fsSL https://raw.githubusercontent.com/yasinmiran/nels-desktop/main/install.sh | bash -s -- --staging
+curl -fsSL https://raw.githubusercontent.com/ELIXIR-NO/nels-desktop/main/install.sh | bash -s -- --staging
 ```
 
 The script downloads the right release, clears the macOS quarantine flag, and places the app in `/Applications` (macOS) or `~/Applications` (Linux). The staging path requires `python3` (preinstalled on modern macOS and most Linux distributions) to filter prereleases.
@@ -52,15 +52,15 @@ The script downloads the right release, clears the macOS quarantine flag, and pl
 
 ```powershell
 # Latest production release
-iwr -useb https://raw.githubusercontent.com/yasinmiran/nels-desktop/main/install.ps1 | iex
+iwr -useb https://raw.githubusercontent.com/ELIXIR-NO/nels-desktop/main/install.ps1 | iex
 
 # Latest -staging prerelease (opt-in)
-$env:NELS_STAGING=1; iwr -useb https://raw.githubusercontent.com/yasinmiran/nels-desktop/main/install.ps1 | iex
+$env:NELS_STAGING=1; iwr -useb https://raw.githubusercontent.com/ELIXIR-NO/nels-desktop/main/install.ps1 | iex
 ```
 
 ### Manual download (required for staging builds)
 
-Grab the installer from the [releases page](https://github.com/yasinmiran/nels-desktop/releases). Prereleases (staging builds) are listed alongside stable ones.
+Grab the installer from the [releases page](https://github.com/ELIXIR-NO/nels-desktop/releases). Prereleases (staging builds) are listed alongside stable ones.
 
 | OS | File |
 |---|---|
@@ -134,7 +134,7 @@ CI substitutes the production values automatically when the tag does not contain
 
 ## Reporting issues
 
-Open an issue at https://github.com/yasinmiran/nels-desktop/issues. Include the diagnostic report from **Settings → Copy report** if you can — it has the exact versions and endpoints the app is using.
+Open an issue at https://github.com/ELIXIR-NO/nels-desktop/issues. Include the diagnostic report from **Settings → Copy report** if you can — it has the exact versions and endpoints the app is using.
 
 ---
 
@@ -142,7 +142,7 @@ Open an issue at https://github.com/yasinmiran/nels-desktop/issues. Include the 
 
 ```bash
 # Prerequisites: Node.js 20+, npm, and (on Linux) libsecret-1-dev
-git clone https://github.com/yasinmiran/nels-desktop.git
+git clone https://github.com/ELIXIR-NO/nels-desktop.git
 cd nels-desktop
 npm install
 npm run rebuild      # recompile keytar against the Electron version

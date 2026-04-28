@@ -149,7 +149,7 @@ if [[ "$ANSWER" =~ ^[yY]$ ]]; then
   git push origin main
   git push origin "$TAG"
   log "Pushed. CI will build and publish from $TAG."
-  log "Watch: https://github.com/yasinmiran/nels-desktop/actions"
+  log "Watch: https://github.com/ELIXIR-NO/nels-desktop/actions"
 else
   log "Skipped push. To push manually:"
   log "  git push origin main && git push origin $TAG"
