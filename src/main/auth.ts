@@ -97,7 +97,7 @@ export async function login(): Promise<UserInfo> {
       `${config.oauthBase}/authorize` +
       `?client_id=${config.clientId}` +
       `&redirect_uri=${encodeURIComponent(config.redirectUri)}` +
-      `&response_type=token`
+      `&response_type=token&scope=user`
 
     shell.openExternal(url)
   })
